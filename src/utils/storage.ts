@@ -1,7 +1,8 @@
-import { Section, Settings, Day } from '../types';
+import { Section, Settings, Day, Instructor } from '../types';
 
 const STORAGE_KEY = 'course-schedule-sections';
 const SETTINGS_KEY = 'course-schedule-settings';
+const INSTRUCTORS_KEY = 'course-schedule-instructors';
 
 interface LegacySection {
   id: string;
@@ -75,4 +76,17 @@ export function loadSettings(): Settings {
 
 export function saveSettings(settings: Settings): void {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+}
+
+export function loadInstructors(): Instructor[] {
+  try {
+    const data = localStorage.getItem(INSTRUCTORS_KEY);
+    return data ? JSON.parse(data) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveInstructors(instructors: Instructor[]): void {
+  localStorage.setItem(INSTRUCTORS_KEY, JSON.stringify(instructors));
 }

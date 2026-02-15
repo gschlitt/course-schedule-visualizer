@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Section, Day, Meeting } from '../types';
+import { Section, Day, Meeting, Instructor } from '../types';
 import { getNextColor } from '../utils/colors';
 
 const ALL_DAYS: Day[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
@@ -18,6 +18,7 @@ interface Props {
   usedColors: string[];
   allowedStartTimes: string[];
   allowedEndTimes: string[];
+  instructors: Instructor[];
 }
 
 const emptyForm = {
@@ -29,7 +30,7 @@ const emptyForm = {
   color: '',
 };
 
-export default function SectionForm({ onSubmit, editingSection, onCancelEdit, usedColors, allowedStartTimes, allowedEndTimes }: Props) {
+export default function SectionForm({ onSubmit, editingSection, onCancelEdit, usedColors, allowedStartTimes, allowedEndTimes, instructors }: Props) {
   const [form, setForm] = useState(emptyForm);
 
   useEffect(() => {
@@ -132,12 +133,15 @@ export default function SectionForm({ onSubmit, editingSection, onCancelEdit, us
 
       <label>
         Instructor
-        <input
-          type="text"
+        <select
           value={form.instructor}
           onChange={e => setForm(f => ({ ...f, instructor: e.target.value }))}
-          placeholder="Dr. Smith"
-        />
+        >
+          <option value="">— None —</option>
+          {instructors.map(inst => (
+            <option key={inst.id} value={inst.name}>{inst.name}</option>
+          ))}
+        </select>
       </label>
 
       <div className="form-field">

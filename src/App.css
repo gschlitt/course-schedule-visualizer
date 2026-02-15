@@ -41,10 +41,6 @@ body {
 
 .app-main {
   display: flex;
-  gap: 24px;
-  padding: 24px;
-  max-width: 1400px;
-  margin: 0 auto;
   min-height: calc(100vh - 60px);
 }
 
@@ -54,11 +50,26 @@ body {
   display: flex;
   flex-direction: column;
   gap: 20px;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.divider {
+  width: 6px;
+  flex-shrink: 0;
+  background: #e0e0e0;
+  cursor: col-resize;
+  transition: background 0.15s;
+}
+
+.divider:hover {
+  background: #4A90D9;
 }
 
 .right-panel {
   flex: 1;
   min-width: 0;
+  padding: 20px;
 }
 
 /* Add Section Button */
@@ -330,27 +341,6 @@ body {
   font-size: 1.2rem;
 }
 
-.view-toggle {
-  display: flex;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  overflow: hidden;
-}
-
-.view-toggle button {
-  padding: 6px 14px;
-  border: none;
-  background: #fff;
-  cursor: pointer;
-  font-size: 0.85rem;
-  transition: all 0.15s;
-}
-
-.view-toggle button.active {
-  background: #4A90D9;
-  color: #fff;
-}
-
 /* Weekly Grid */
 .weekly-grid {
   overflow-x: auto;
@@ -456,33 +446,101 @@ body {
   padding: 2px 0;
 }
 
-/* List View */
-.list-view {
+/* Instructors Summary (left panel) */
+.instructors-summary {
+  background: #fff;
+  border-radius: 8px;
+  padding: 16px 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.instructors-summary h3 {
+  font-size: 1.1rem;
+  margin-bottom: 10px;
+}
+
+.instructors-summary-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 8px;
 }
 
-.list-day-group h4 {
-  font-size: 1rem;
-  margin-bottom: 8px;
-  color: #555;
-  border-bottom: 1px solid #eee;
-  padding-bottom: 4px;
+.instructor-summary-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid #f0f0f0;
 }
 
-.list-item {
-  border-left: 4px solid;
-  padding: 8px 12px;
-  margin-bottom: 6px;
-  background: #fafafa;
+.instructor-summary-row:last-child {
+  border-bottom: none;
+}
+
+.instructor-summary-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+.instructor-summary-sections {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+
+.instructor-section-tag {
+  display: inline-block;
+  padding: 1px 6px;
+  border: 1.5px solid;
   border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.list-item-detail {
-  font-size: 0.85rem;
-  color: #666;
-  margin-top: 2px;
+.instructor-summary-none {
+  font-size: 0.8rem;
+  color: #999;
+  font-style: italic;
+}
+
+/* Instructor Panel */
+.instructor-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.instructor-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: #fafafa;
+  border-radius: 6px;
+}
+
+.instructor-row input[type="text"] {
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.instructor-name {
+  flex: 1;
+  font-size: 0.95rem;
+}
+
+.instructor-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 /* Settings Panel */
@@ -656,6 +714,9 @@ body {
     flex-direction: column;
   }
   .left-panel {
-    width: 100%;
+    width: 100% !important;
+  }
+  .divider {
+    display: none;
   }
 }

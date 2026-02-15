@@ -16,6 +16,11 @@ export interface Section {
   color: string;
 }
 
+export interface Instructor {
+  id: string;
+  name: string;
+}
+
 export interface Settings {
   allowedStartTimes: string[];
   allowedEndTimes: string[];
