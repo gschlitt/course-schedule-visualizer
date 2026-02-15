@@ -1,5 +1,7 @@
 export type Day = 'Mon' | 'Tue' | 'Wed' | 'Thu' | 'Fri';
 
+export type Semester = 'Fall' | 'Winter' | 'Summer';
+
 export interface Meeting {
   day: Day;
   startTime: string;

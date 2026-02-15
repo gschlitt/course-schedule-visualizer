@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Section, Settings, Instructor } from './types';
-import { loadSections, saveSections, loadSettings, saveSettings, loadInstructors, saveInstructors } from './utils/storage';
+import { Section, Settings, Instructor, Semester } from './types';
+import { loadSections, saveSections, loadSettings, saveSettings, loadInstructors, saveInstructors, loadYears, saveYears } from './utils/storage';
 import SectionForm from './components/SectionForm';
 import SectionList from './components/SectionList';
 import ScheduleView from './components/ScheduleView';
@@ -8,8 +8,13 @@ import SettingsPanel from './components/SettingsPanel';
 import InstructorsPanel from './components/InstructorsPanel';
 import InstructorsSummary from './components/InstructorsSummary';
 
+const SEMESTERS: Semester[] = ['Fall', 'Winter', 'Summer'];
+
 export default function App() {
-  const [sections, setSections] = useState<Section[]>(() => loadSections());
+  const [years, setYears] = useState<number[]>(() => loadYears());
+  const [selectedYear, setSelectedYear] = useState<number>(() => loadYears()[0]);
+  const [selectedSemester, setSelectedSemester] = useState<Semester>('Fall');
+  const [sections, setSections] = useState<Section[]>(() => loadSections(loadYears()[0], 'Fall'));
   const [editingSection, setEditingSection] = useState<Section | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [selectedSectionIds, setSelectedSectionIds] = useState<Set<string>>(new Set());
@@ -20,9 +25,18 @@ export default function App() {
   const [leftWidth, setLeftWidth] = useState(340);
   const dragging = useRef(false);
 
+  // Reload sections when year/semester changes
   useEffect(() => {
-    saveSections(sections);
-  }, [sections]);
+    setSections(loadSections(selectedYear, selectedSemester));
+    setEditingSection(null);
+    setShowForm(false);
+    setSelectedSectionIds(new Set());
+  }, [selectedYear, selectedSemester]);
+
+  // Save sections when they change
+  useEffect(() => {
+    saveSections(sections, selectedYear, selectedSemester);
+  }, [sections, selectedYear, selectedSemester]);
 
   const onMouseDown = useCallback(() => {
     dragging.current = true;
@@ -49,6 +63,13 @@ export default function App() {
       window.removeEventListener('mouseup', onMouseUp);
     };
   }, []);
+
+  function handleAddYear() {
+    const nextYear = Math.max(...years) + 1;
+    const updated = [...years, nextYear];
+    setYears(updated);
+    saveYears(updated);
+  }
 
   function handleSubmit(section: Section) {
     setSections(prev => {
@@ -86,7 +107,26 @@ export default function App() {
     <div className="app">
       <header className="app-header">
         <h1>Course Schedule Visualizer</h1>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div className="header-controls">
+          <select
+            className="header-select"
+            value={selectedYear}
+            onChange={e => setSelectedYear(Number(e.target.value))}
+          >
+            {years.map(y => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
+          <button className="header-add-year" onClick={handleAddYear} title="Add year">+</button>
+          <select
+            className="header-select"
+            value={selectedSemester}
+            onChange={e => setSelectedSemester(e.target.value as Semester)}
+          >
+            {SEMESTERS.map(s => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
           <button className="settings-btn" onClick={() => setShowInstructors(true)}>Instructors</button>
           <button className="settings-btn" onClick={() => setShowSettings(true)}>Settings</button>
         </div>

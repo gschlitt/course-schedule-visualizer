@@ -24,6 +24,45 @@ body {
   font-weight: 600;
 }
 
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-select {
+  padding: 6px 12px;
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  appearance: auto;
+}
+
+.header-select option {
+  background: #1a1a2e;
+  color: #fff;
+}
+
+.header-add-year {
+  padding: 6px 10px;
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1;
+  transition: background 0.15s;
+}
+
+.header-add-year:hover {
+  background: rgba(255,255,255,0.25);
+}
+
 .settings-btn {
   padding: 6px 16px;
   background: rgba(255,255,255,0.15);

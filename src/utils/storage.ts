@@ -1,8 +1,13 @@
-import { Section, Settings, Day, Instructor } from '../types';
+import { Section, Settings, Day, Instructor, Semester } from '../types';
 
-const STORAGE_KEY = 'course-schedule-sections';
+const OLD_SECTIONS_KEY = 'course-schedule-sections';
+const YEARS_KEY = 'course-schedule-years';
 const SETTINGS_KEY = 'course-schedule-settings';
 const INSTRUCTORS_KEY = 'course-schedule-instructors';
+
+function sectionsKey(year: number, semester: Semester): string {
+  return `course-schedule-sections-${year}-${semester}`;
+}
 
 interface LegacySection {
   id: string;
@@ -34,9 +39,47 @@ function migrateSection(raw: LegacySection | Section): Section {
   };
 }
 
-export function loadSections(): Section[] {
+let migrationDone = false;
+
+function runMigration(): void {
+  if (migrationDone) return;
+  migrationDone = true;
+  const oldData = localStorage.getItem(OLD_SECTIONS_KEY);
+  if (!oldData) return;
+  // Only migrate if no keyed data exists yet
+  const targetKey = sectionsKey(2026, 'Fall');
+  if (localStorage.getItem(targetKey)) return;
   try {
-    const data = localStorage.getItem(STORAGE_KEY);
+    const parsed: (LegacySection | Section)[] = JSON.parse(oldData);
+    const migrated = parsed.map(migrateSection);
+    localStorage.setItem(targetKey, JSON.stringify(migrated));
+    localStorage.removeItem(OLD_SECTIONS_KEY);
+  } catch {
+    // If migration fails, leave old data in place
+  }
+}
+
+export function loadYears(): number[] {
+  try {
+    const data = localStorage.getItem(YEARS_KEY);
+    if (data) {
+      const years: number[] = JSON.parse(data);
+      return years.length > 0 ? years : [2026];
+    }
+    return [2026];
+  } catch {
+    return [2026];
+  }
+}
+
+export function saveYears(years: number[]): void {
+  localStorage.setItem(YEARS_KEY, JSON.stringify(years));
+}
+
+export function loadSections(year: number, semester: Semester): Section[] {
+  runMigration();
+  try {
+    const data = localStorage.getItem(sectionsKey(year, semester));
     if (!data) return [];
     const parsed: (LegacySection | Section)[] = JSON.parse(data);
     return parsed.map(migrateSection);
@@ -45,8 +88,8 @@ export function loadSections(): Section[] {
   }
 }
 
-export function saveSections(sections: Section[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(sections));
+export function saveSections(sections: Section[], year: number, semester: Semester): void {
+  localStorage.setItem(sectionsKey(year, semester), JSON.stringify(sections));
 }
 
 function generateTimes(startHour: number, endHour: number, intervalMin: number): string[] {
