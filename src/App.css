@@ -267,12 +267,24 @@ body {
   margin-bottom: 10px;
   border-radius: 4px;
   background: #fafafa;
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+.section-card:hover {
+  background: #f0f4fa;
+}
+
+.section-card-selected {
+  background: #e8f0fe;
+  box-shadow: 0 0 0 2px #4A90D9;
 }
 
 .section-card-header {
   display: flex;
   align-items: baseline;
   gap: 6px;
+  flex-wrap: nowrap;
 }
 
 .section-num {
@@ -288,8 +300,31 @@ body {
 
 .section-card-actions {
   display: flex;
-  gap: 6px;
-  margin-top: 8px;
+  gap: 4px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.btn-icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.95rem;
+  line-height: 1;
+  padding: 2px 4px;
+  border-radius: 4px;
+  color: #999;
+  transition: color 0.15s, background 0.15s;
+}
+
+.btn-icon:hover {
+  color: #4A90D9;
+  background: rgba(74,144,217,0.1);
+}
+
+.btn-icon-danger:hover {
+  color: #e06c75;
+  background: rgba(224,108,117,0.1);
 }
 
 .btn-sm {
@@ -425,6 +460,14 @@ body {
   text-overflow: ellipsis;
 }
 
+.block-name-clickable {
+  cursor: pointer;
+}
+
+.block-name-clickable:hover {
+  text-decoration: underline;
+}
+
 .block-time,
 .block-loc {
   font-size: 0.7rem;
@@ -481,6 +524,18 @@ body {
   font-weight: 600;
   font-size: 0.9rem;
   flex-shrink: 0;
+  cursor: pointer;
+}
+
+.instructor-summary-name:hover {
+  color: #4A90D9;
+  text-decoration: underline;
+}
+
+.instructor-summary-row-selected {
+  background: #e8f0fe;
+  border-radius: 4px;
+  padding: 6px 8px;
 }
 
 .instructor-summary-sections {

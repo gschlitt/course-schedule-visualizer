@@ -3,9 +3,11 @@ import { Instructor, Section } from '../types';
 interface Props {
   instructors: Instructor[];
   sections: Section[];
+  selectedIds: Set<string>;
+  onSelectInstructor: (name: string) => void;
 }
 
-export default function InstructorsSummary({ instructors, sections }: Props) {
+export default function InstructorsSummary({ instructors, sections, selectedIds, onSelectInstructor }: Props) {
   if (instructors.length === 0) return null;
 
   return (
@@ -14,9 +16,15 @@ export default function InstructorsSummary({ instructors, sections }: Props) {
       <div className="instructors-summary-list">
         {instructors.map(inst => {
           const assigned = sections.filter(s => s.instructor === inst.name);
+          const isActive = assigned.length > 0 && assigned.every(s => selectedIds.has(s.id));
           return (
-            <div key={inst.id} className="instructor-summary-row">
-              <span className="instructor-summary-name">{inst.name}</span>
+            <div key={inst.id} className={`instructor-summary-row${isActive ? ' instructor-summary-row-selected' : ''}`}>
+              <span
+                className="instructor-summary-name"
+                onClick={() => onSelectInstructor(inst.name)}
+              >
+                {inst.name}
+              </span>
               {assigned.length > 0 ? (
                 <div className="instructor-summary-sections">
                   {assigned.map(s => (

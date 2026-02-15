@@ -6,9 +6,11 @@ interface Props {
   sections: Section[];
   onEdit: (section: Section) => void;
   onDelete: (id: string) => void;
+  selectedIds: Set<string>;
+  onSelect: (id: string) => void;
 }
 
-export default function SectionList({ sections, onEdit, onDelete }: Props) {
+export default function SectionList({ sections, onEdit, onDelete, selectedIds, onSelect }: Props) {
   if (sections.length === 0) {
     return <p className="empty-msg">No sections added yet.</p>;
   }
@@ -21,10 +23,19 @@ export default function SectionList({ sections, onEdit, onDelete }: Props) {
           (a, b) => DAY_ORDER.indexOf(a.day) - DAY_ORDER.indexOf(b.day) || a.startTime.localeCompare(b.startTime)
         );
         return (
-          <div key={s.id} className="section-card" style={{ borderLeftColor: s.color }}>
+          <div
+            key={s.id}
+            className={`section-card${selectedIds.has(s.id) ? ' section-card-selected' : ''}`}
+            style={{ borderLeftColor: s.color }}
+            onClick={() => onSelect(s.id)}
+          >
             <div className="section-card-header">
               <strong>{s.courseName}</strong>
               {s.sectionNumber && <span className="section-num">#{s.sectionNumber}</span>}
+              <div className="section-card-actions">
+                <button className="btn-icon" onClick={e => { e.stopPropagation(); onEdit(s); }} title="Edit">&#9998;</button>
+                <button className="btn-icon btn-icon-danger" onClick={e => { e.stopPropagation(); onDelete(s.id); }} title="Delete">&times;</button>
+              </div>
             </div>
             {s.instructor && <div className="section-detail">{s.instructor}</div>}
             {sorted.map((m, i) => (
@@ -33,10 +44,6 @@ export default function SectionList({ sections, onEdit, onDelete }: Props) {
               </div>
             ))}
             {s.location && <div className="section-detail">{s.location}</div>}
-            <div className="section-card-actions">
-              <button className="btn-sm" onClick={() => onEdit(s)}>Edit</button>
-              <button className="btn-sm btn-danger" onClick={() => onDelete(s.id)}>Delete</button>
-            </div>
           </div>
         );
       })}

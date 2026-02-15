@@ -24,6 +24,8 @@ interface DayBlock {
 
 interface Props {
   sections: Section[];
+  selectedSectionIds: Set<string>;
+  onSelectSection: (id: string) => void;
 }
 
 interface OverlapGroup {
@@ -68,8 +70,14 @@ function groupOverlaps(dayBlocks: DayBlock[]): OverlapGroup[] {
   return groups;
 }
 
-export default function WeeklyGrid({ sections }: Props) {
+export default function WeeklyGrid({ sections, selectedSectionIds, onSelectSection }: Props) {
   const totalMinutes = (END_HOUR - START_HOUR) * 60;
+  const hasSelection = selectedSectionIds.size > 0;
+
+  function blockOpacity(sectionId: string): number {
+    if (!hasSelection) return 1;
+    return selectedSectionIds.has(sectionId) ? 1 : 0.4;
+  }
 
   function getBlocksForDay(day: Day): DayBlock[] {
     const blocks: DayBlock[] = [];
@@ -90,6 +98,10 @@ export default function WeeklyGrid({ sections }: Props) {
     const top = (startMin / totalMinutes) * 100;
     const height = ((endMin - startMin) / totalMinutes) * 100;
 
+    const mergedOpacity = hasSelection
+      ? (group.blocks.some(b => selectedSectionIds.has(b.section.id)) ? 1 : 0.4)
+      : 1;
+
     return (
       <div
         key={group.blocks.map(b => b.section.id + b.startTime).join('-')}
@@ -98,11 +110,13 @@ export default function WeeklyGrid({ sections }: Props) {
           top: `${top}%`,
           height: `${height}%`,
           backgroundColor: first.section.color,
+          opacity: mergedOpacity,
+          transition: 'opacity 0.15s',
         }}
       >
         {group.blocks.map((b, i) => (
           <div key={b.section.id} className="merged-entry" style={i > 0 ? { borderTop: '1px solid rgba(255,255,255,0.3)' } : undefined}>
-            <span className="block-name" style={{ color: '#fff', backgroundColor: b.section.color, borderRadius: 2, padding: '0 2px' }}>
+            <span className="block-name block-name-clickable" style={{ color: '#fff', backgroundColor: b.section.color, borderRadius: 2, padding: '0 2px' }} onClick={() => onSelectSection(b.section.id)}>
               {b.section.courseName}
             </span>
             {b.section.location && <span className="block-loc">{b.section.location}</span>}
@@ -133,10 +147,12 @@ export default function WeeklyGrid({ sections }: Props) {
             left: `${left}%`,
             right: 'auto',
             width: `${width}%`,
+            opacity: blockOpacity(block.section.id),
+            transition: 'opacity 0.15s',
           }}
           title={`${block.section.courseName} ${block.section.sectionNumber}\n${block.startTime}–${block.endTime}\n${block.section.instructor}\n${block.section.location}`}
         >
-          <span className="block-name">{block.section.courseName}</span>
+          <span className="block-name block-name-clickable" onClick={() => onSelectSection(block.section.id)}>{block.section.courseName}</span>
           {block.section.location && <span className="block-loc">{block.section.location}</span>}
         </div>
       );
@@ -184,10 +200,12 @@ export default function WeeklyGrid({ sections }: Props) {
                         top: `${top}%`,
                         height: `${height}%`,
                         backgroundColor: block.section.color,
+                        opacity: blockOpacity(block.section.id),
+                        transition: 'opacity 0.15s',
                       }}
                       title={`${block.section.courseName} ${block.section.sectionNumber}\n${block.startTime}–${block.endTime}\n${block.section.instructor}\n${block.section.location}`}
                     >
-                      <span className="block-name">{block.section.courseName}</span>
+                      <span className="block-name block-name-clickable" onClick={() => onSelectSection(block.section.id)}>{block.section.courseName}</span>
                       {block.section.location && <span className="block-loc">{block.section.location}</span>}
                     </div>
                   );

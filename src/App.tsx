@@ -12,6 +12,7 @@ export default function App() {
   const [sections, setSections] = useState<Section[]>(() => loadSections());
   const [editingSection, setEditingSection] = useState<Section | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [selectedSectionIds, setSelectedSectionIds] = useState<Set<string>>(new Set());
   const [settings, setSettings] = useState<Settings>(() => loadSettings());
   const [showSettings, setShowSettings] = useState(false);
   const [instructors, setInstructors] = useState<Instructor[]>(() => loadInstructors());
@@ -111,12 +112,33 @@ export default function App() {
             sections={sections}
             onEdit={handleEdit}
             onDelete={handleDelete}
+            selectedIds={selectedSectionIds}
+            onSelect={id => setSelectedSectionIds(prev =>
+              prev.size === 1 && prev.has(id) ? new Set() : new Set([id])
+            )}
           />
-          <InstructorsSummary instructors={instructors} sections={sections} />
+          <InstructorsSummary
+            instructors={instructors}
+            sections={sections}
+            selectedIds={selectedSectionIds}
+            onSelectInstructor={(name) => {
+              const ids = sections.filter(s => s.instructor === name).map(s => s.id);
+              if (ids.length === 0) return;
+              const newSet = new Set(ids);
+              const same = selectedSectionIds.size === newSet.size && ids.every(id => selectedSectionIds.has(id));
+              setSelectedSectionIds(same ? new Set() : newSet);
+            }}
+          />
         </div>
         <div className="divider" onMouseDown={onMouseDown} />
         <div className="right-panel">
-          <ScheduleView sections={sections} />
+          <ScheduleView
+            sections={sections}
+            selectedSectionIds={selectedSectionIds}
+            onSelectSection={id => setSelectedSectionIds(prev =>
+              prev.size === 1 && prev.has(id) ? new Set() : new Set([id])
+            )}
+          />
         </div>
       </main>
       {showSettings && (
