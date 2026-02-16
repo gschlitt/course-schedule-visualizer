@@ -8,11 +8,12 @@ interface Props {
   tags: Tag[];
   onEdit: (section: Section) => void;
   onDelete: (id: string) => void;
+  onDuplicate: (section: Section) => void;
   selectedIds: Set<string>;
   onSelect: (id: string) => void;
 }
 
-export default function SectionList({ sections, instructors, tags, onEdit, onDelete, selectedIds, onSelect }: Props) {
+export default function SectionList({ sections, instructors, tags, onEdit, onDelete, onDuplicate, selectedIds, onSelect }: Props) {
   if (sections.length === 0) {
     return <p className="empty-msg">No sections added yet.</p>;
   }
@@ -35,6 +36,7 @@ export default function SectionList({ sections, instructors, tags, onEdit, onDel
               <strong>{s.courseName}</strong>
               {s.sectionNumber && <span className="section-num">#{s.sectionNumber}</span>}
               <div className="section-card-actions">
+                <button className="btn-icon" onClick={e => { e.stopPropagation(); onDuplicate(s); }} title="Duplicate">&#9112;</button>
                 <button className="btn-icon" onClick={e => { e.stopPropagation(); onEdit(s); }} title="Edit">&#9998;</button>
                 <button className="btn-icon btn-icon-danger" onClick={e => { e.stopPropagation(); onDelete(s.id); }} title="Delete">&times;</button>
               </div>

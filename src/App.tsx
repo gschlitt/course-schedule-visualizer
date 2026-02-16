@@ -19,6 +19,7 @@ import TagsPanel from './components/TagsPanel';
 import InstructorsSummary from './components/InstructorsSummary';
 import ConflictDialog from './components/ConflictDialog';
 import { exportCsv } from './utils/csv';
+import { getNextColor } from './utils/colors';
 
 const SEMESTERS: Semester[] = ['Fall', 'Winter', 'Summer'];
 
@@ -239,6 +240,44 @@ export default function App() {
     setShowForm(false);
   }
 
+  function advanceSectionNumber(sectionNumber: string): string {
+    const match = sectionNumber.match(/^(.*?)(\d+)$/);
+    if (!match) return sectionNumber;
+    const prefix = match[1];
+    const num = parseInt(match[2], 10) + 1;
+    const padded = String(num).padStart(match[2].length, '0');
+    return prefix + padded;
+  }
+
+  function handleDuplicate(section: Section) {
+    const match = section.sectionNumber.match(/^(.*?)(\d+)$/);
+    if (!match) return;
+    const existingNumbers = new Set(
+      sections.filter(s => s.courseName === section.courseName).map(s => s.sectionNumber)
+    );
+    let newNumber = advanceSectionNumber(section.sectionNumber);
+    if (match) {
+      // Keep incrementing until we find an unused number
+      const prefix = match[1];
+      const padLen = match[2].length;
+      let num = parseInt(match[2], 10) + 1;
+      while (existingNumbers.has(prefix + String(num).padStart(padLen, '0'))) {
+        num++;
+      }
+      newNumber = prefix + String(num).padStart(padLen, '0');
+    }
+    const newSection: Section = {
+      id: crypto.randomUUID(),
+      courseName: section.courseName,
+      sectionNumber: newNumber,
+      instructor: '',
+      meetings: [],
+      location: '',
+      color: settings.defaultSectionColor || getNextColor(sections.map(s => s.color)),
+    };
+    setSections(prev => [...prev, newSection]);
+  }
+
   function handleDelete(id: string) {
     setSections(prev => prev.filter(s => s.id !== id));
     if (editingSection?.id === id) {
@@ -348,6 +387,7 @@ export default function App() {
             tags={tags}
             onEdit={handleEdit}
             onDelete={handleDelete}
+            onDuplicate={handleDuplicate}
             selectedIds={selectedSectionIds}
             onSelect={id => setSelectedSectionIds(prev =>
               prev.size === 1 && prev.has(id) ? new Set() : new Set([id])
