@@ -445,14 +445,12 @@ body {
 .grid-body {
   display: flex;
   position: relative;
-  height: 900px;
 }
 
 .time-column {
   width: 70px;
   flex-shrink: 0;
   position: relative;
-  height: 900px;
 }
 
 .time-label {
@@ -473,11 +471,14 @@ body {
   white-space: nowrap;
 }
 
+.time-label-small {
+  font-size: 0.6rem;
+}
+
 .day-column {
   flex: 1;
   position: relative;
   border-left: 1px solid #eee;
-  height: 900px;
 }
 
 .hour-line {

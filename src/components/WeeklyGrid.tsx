@@ -81,6 +81,15 @@ function formatTime(time: string): string {
   return `${display}:${String(m).padStart(2, '0')} ${suffix}`;
 }
 
+const BASE_HEIGHT = 900;
+const MIN_ENTRY_HEIGHT = 22;
+
+interface ExpansionZone {
+  startMin: number; // relative to START_HOUR
+  endMin: number;
+  overflowPx: number;
+}
+
 export default function WeeklyGrid({ sections, instructors, selectedSectionIds, onSelectSection, allowedStartTimes, allowedEndTimes }: Props) {
   function getAbbr(instructorName: string): string {
     const inst = instructors.find(i => i.name === instructorName);
@@ -106,12 +115,60 @@ export default function WeeklyGrid({ sections, instructors, selectedSectionIds, 
     return blocks;
   }
 
+  // --- Pass 1: Calculate expansion zones ---
+  // Collect overlap groups for ALL days, find max overflow per time range
+  const overflowByRange = new Map<string, { startMin: number; endMin: number; overflowPx: number }>();
+
+  for (const day of DAYS) {
+    const dayBlocks = getBlocksForDay(day);
+    const groups = groupOverlaps(dayBlocks);
+    for (const group of groups) {
+      if (!group.exactMatch || group.blocks.length <= 1) continue;
+      const first = group.blocks[0];
+      const startMin = timeToMinutes(first.startTime) - START_HOUR * 60;
+      const endMin = timeToMinutes(first.endTime) - START_HOUR * 60;
+      const durationMin = endMin - startMin;
+      const proportionalPx = (durationMin / totalMinutes) * BASE_HEIGHT;
+      const contentPx = group.blocks.length * MIN_ENTRY_HEIGHT;
+      const overflow = Math.max(0, contentPx - proportionalPx);
+      if (overflow > 0) {
+        const key = `${startMin}-${endMin}`;
+        const existing = overflowByRange.get(key);
+        if (!existing || overflow > existing.overflowPx) {
+          overflowByRange.set(key, { startMin, endMin, overflowPx: overflow });
+        }
+      }
+    }
+  }
+
+  const expansions: ExpansionZone[] = Array.from(overflowByRange.values())
+    .sort((a, b) => a.startMin - b.startMin);
+
+  const totalOverflow = expansions.reduce((sum, e) => sum + e.overflowPx, 0);
+  const totalGridHeight = BASE_HEIGHT + totalOverflow;
+
+  function minuteToPixel(minute: number): number {
+    let px = (minute / totalMinutes) * BASE_HEIGHT;
+    for (const exp of expansions) {
+      if (minute <= exp.startMin) break;
+      if (minute >= exp.endMin) {
+        // Past this zone: add full overflow
+        px += exp.overflowPx;
+      } else {
+        // Inside this zone: add proportional overflow
+        const frac = (minute - exp.startMin) / (exp.endMin - exp.startMin);
+        px += frac * exp.overflowPx;
+      }
+    }
+    return px;
+  }
+
   function renderMergedBlock(group: OverlapGroup) {
     const first = group.blocks[0];
     const startMin = timeToMinutes(first.startTime) - START_HOUR * 60;
     const endMin = timeToMinutes(first.endTime) - START_HOUR * 60;
-    const top = (startMin / totalMinutes) * 100;
-    const height = ((endMin - startMin) / totalMinutes) * 100;
+    const top = minuteToPixel(startMin);
+    const height = minuteToPixel(endMin) - top;
 
     const mergedOpacity = hasSelection
       ? (group.blocks.some(b => selectedSectionIds.has(b.section.id)) ? 1 : 0.4)
@@ -122,8 +179,8 @@ export default function WeeklyGrid({ sections, instructors, selectedSectionIds, 
         key={group.blocks.map(b => b.section.id + b.startTime).join('-')}
         className="grid-block grid-block-merged"
         style={{
-          top: `${top}%`,
-          height: `${height}%`,
+          top: `${top}px`,
+          height: `${height}px`,
           backgroundColor: first.section.color,
           opacity: mergedOpacity,
           transition: 'opacity 0.15s',
@@ -146,8 +203,8 @@ export default function WeeklyGrid({ sections, instructors, selectedSectionIds, 
     return group.blocks.map((block, idx) => {
       const startMin = timeToMinutes(block.startTime) - START_HOUR * 60;
       const endMin = timeToMinutes(block.endTime) - START_HOUR * 60;
-      const top = (startMin / totalMinutes) * 100;
-      const height = ((endMin - startMin) / totalMinutes) * 100;
+      const top = minuteToPixel(startMin);
+      const height = minuteToPixel(endMin) - top;
       const width = 100 / count;
       const left = width * idx;
 
@@ -156,8 +213,8 @@ export default function WeeklyGrid({ sections, instructors, selectedSectionIds, 
           key={block.section.id + '-' + block.startTime}
           className="grid-block"
           style={{
-            top: `${top}%`,
-            height: `${height}%`,
+            top: `${top}px`,
+            height: `${height}px`,
             backgroundColor: block.section.color,
             left: `${left}%`,
             right: 'auto',
@@ -182,8 +239,8 @@ export default function WeeklyGrid({ sections, instructors, selectedSectionIds, 
       return mins >= START_HOUR * 60 && mins < END_HOUR * 60;
     })
     .sort();
-  // Labels: only start times that are NOT also end times
-  const labelTimes = visibleStartTimes.filter(t => !endTimesSet.has(t));
+  // Labels: all visible start times
+  const labelTimes = visibleStartTimes;
 
   return (
     <div className="weekly-grid">
@@ -193,13 +250,14 @@ export default function WeeklyGrid({ sections, instructors, selectedSectionIds, 
           <div key={day} className="day-header">{day}</div>
         ))}
       </div>
-      <div className="grid-body">
-        <div className="time-column">
+      <div className="grid-body" style={{ height: `${totalGridHeight}px` }}>
+        <div className="time-column" style={{ height: `${totalGridHeight}px` }}>
           {labelTimes.map(time => {
             const mins = timeToMinutes(time) - START_HOUR * 60;
-            const top = (mins / totalMinutes) * 100;
+            const top = minuteToPixel(mins);
+            const isAlsoEnd = endTimesSet.has(time);
             return (
-              <div key={time} className="time-label time-label-abs" style={{ top: `${top}%` }}>
+              <div key={time} className={`time-label time-label-abs${isAlsoEnd ? ' time-label-small' : ''}`} style={{ top: `${top}px` }}>
                 {formatTime(time)}
               </div>
             );
@@ -210,15 +268,15 @@ export default function WeeklyGrid({ sections, instructors, selectedSectionIds, 
           const groups = groupOverlaps(dayBlocks);
 
           return (
-            <div key={day} className="day-column">
+            <div key={day} className="day-column" style={{ height: `${totalGridHeight}px` }}>
               {visibleStartTimes.map(time => {
                 const mins = timeToMinutes(time) - START_HOUR * 60;
-                const top = (mins / totalMinutes) * 100;
+                const top = minuteToPixel(mins);
                 return (
                   <div
                     key={time}
                     className="start-time-rule"
-                    style={{ top: `${top}%` }}
+                    style={{ top: `${top}px` }}
                   />
                 );
               })}
@@ -227,16 +285,16 @@ export default function WeeklyGrid({ sections, instructors, selectedSectionIds, 
                   const block = group.blocks[0];
                   const startMin = timeToMinutes(block.startTime) - START_HOUR * 60;
                   const endMin = timeToMinutes(block.endTime) - START_HOUR * 60;
-                  const top = (startMin / totalMinutes) * 100;
-                  const height = ((endMin - startMin) / totalMinutes) * 100;
+                  const top = minuteToPixel(startMin);
+                  const height = minuteToPixel(endMin) - top;
 
                   return (
                     <div
                       key={block.section.id + '-' + block.startTime}
                       className="grid-block"
                       style={{
-                        top: `${top}%`,
-                        height: `${height}%`,
+                        top: `${top}px`,
+                        height: `${height}px`,
                         backgroundColor: block.section.color,
                         opacity: blockOpacity(block.section.id),
                         transition: 'opacity 0.15s',
