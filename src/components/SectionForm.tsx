@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Section, Day, Meeting, Instructor } from '../types';
+import { Section, Day, Meeting, Instructor, Course, Tag } from '../types';
 import { getNextColor } from '../utils/colors';
 
 const ALL_DAYS: Day[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
@@ -19,6 +19,9 @@ interface Props {
   allowedStartTimes: string[];
   allowedEndTimes: string[];
   instructors: Instructor[];
+  courses: Course[];
+  tags: Tag[];
+  defaultSectionColor?: string;
 }
 
 const emptyForm = {
@@ -28,9 +31,10 @@ const emptyForm = {
   meetings: [] as Meeting[],
   location: '',
   color: '',
+  tagIds: [] as string[],
 };
 
-export default function SectionForm({ onSubmit, editingSection, onCancelEdit, usedColors, allowedStartTimes, allowedEndTimes, instructors }: Props) {
+export default function SectionForm({ onSubmit, editingSection, onCancelEdit, usedColors, allowedStartTimes, allowedEndTimes, instructors, courses, tags, defaultSectionColor }: Props) {
   const [form, setForm] = useState(emptyForm);
 
   useEffect(() => {
@@ -42,11 +46,15 @@ export default function SectionForm({ onSubmit, editingSection, onCancelEdit, us
         meetings: editingSection.meetings,
         location: editingSection.location,
         color: editingSection.color,
+        tagIds: editingSection.tagIds ?? [],
       });
     }
   }, [editingSection]);
 
   const selectedDays = [...new Set(form.meetings.map(m => m.day))];
+
+  const defaultStart = allowedStartTimes[0] || '09:00';
+  const defaultEnd = allowedEndTimes[0] || '10:00';
 
   function handleDayToggle(day: Day) {
     setForm(f => {
@@ -54,7 +62,7 @@ export default function SectionForm({ onSubmit, editingSection, onCancelEdit, us
       if (hasMeetings) {
         return { ...f, meetings: f.meetings.filter(m => m.day !== day) };
       } else {
-        return { ...f, meetings: [...f.meetings, { day, startTime: '09:00', endTime: '10:00' }] };
+        return { ...f, meetings: [...f.meetings, { day, startTime: defaultStart, endTime: defaultEnd }] };
       }
     });
   }
@@ -72,7 +80,7 @@ export default function SectionForm({ onSubmit, editingSection, onCancelEdit, us
   }
 
   function addMeetingForDay(day: Day) {
-    setForm(f => ({ ...f, meetings: [...f.meetings, { day, startTime: '09:00', endTime: '10:00' }] }));
+    setForm(f => ({ ...f, meetings: [...f.meetings, { day, startTime: defaultStart, endTime: defaultEnd }] }));
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -86,7 +94,8 @@ export default function SectionForm({ onSubmit, editingSection, onCancelEdit, us
       instructor: form.instructor,
       meetings: form.meetings,
       location: form.location,
-      color: form.color || getNextColor(usedColors),
+      color: form.color || defaultSectionColor || getNextColor(usedColors),
+      tagIds: form.tagIds.length > 0 ? form.tagIds : undefined,
     };
     onSubmit(section);
     setForm(emptyForm);
@@ -112,13 +121,16 @@ export default function SectionForm({ onSubmit, editingSection, onCancelEdit, us
 
       <label>
         Course Name *
-        <input
-          type="text"
+        <select
           value={form.courseName}
           onChange={e => setForm(f => ({ ...f, courseName: e.target.value }))}
-          placeholder="CS 101"
           required
-        />
+        >
+          <option value="">— Select Course —</option>
+          {courses.map(c => (
+            <option key={c.id} value={c.abbreviation}>{c.abbreviation} — {c.title}</option>
+          ))}
+        </select>
       </label>
 
       <label>
@@ -213,11 +225,50 @@ export default function SectionForm({ onSubmit, editingSection, onCancelEdit, us
         />
       </label>
 
+      {tags.length > 0 && (
+        <div className="form-field">
+          <span>Tags</span>
+          <select
+            value=""
+            onChange={e => {
+              const id = e.target.value;
+              if (id && !form.tagIds.includes(id)) {
+                setForm(f => ({ ...f, tagIds: [...f.tagIds, id] }));
+              }
+            }}
+          >
+            <option value="">— Add Tag —</option>
+            {tags.filter(t => !form.tagIds.includes(t.id)).map(t => (
+              <option key={t.id} value={t.id}>{t.name}</option>
+            ))}
+          </select>
+          {form.tagIds.length > 0 && (
+            <div className="tag-chips">
+              {form.tagIds
+                .map(id => tags.find(t => t.id === id))
+                .filter(Boolean)
+                .map(tag => (
+                  <span key={tag!.id} className="tag-chip">
+                    {tag!.name}
+                    <button
+                      type="button"
+                      className="tag-chip-remove"
+                      onClick={() => setForm(f => ({ ...f, tagIds: f.tagIds.filter(id => id !== tag!.id) }))}
+                    >
+                      &times;
+                    </button>
+                  </span>
+                ))}
+            </div>
+          )}
+        </div>
+      )}
+
       <label>
         Color
         <input
           type="color"
-          value={form.color || '#4A90D9'}
+          value={form.color || defaultSectionColor || '#4A90D9'}
           onChange={e => setForm(f => ({ ...f, color: e.target.value }))}
         />
       </label>

@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Section, Settings, Instructor, Semester } from './types';
+import { Section, Settings, Instructor, Course, Semester, Tag } from './types';
 import {
   loadSections, saveSections, forceSaveSections,
   loadSettings, saveSettings,
   loadInstructors, saveInstructors,
+  loadCourses, saveCourses,
+  loadTags, saveTags,
   loadYears, saveYears,
   DEFAULT_SETTINGS, ConflictError, refreshTimestamp
 } from './utils/storage';
@@ -12,6 +14,8 @@ import SectionList from './components/SectionList';
 import ScheduleView from './components/ScheduleView';
 import SettingsPanel from './components/SettingsPanel';
 import InstructorsPanel from './components/InstructorsPanel';
+import CoursesPanel from './components/CoursesPanel';
+import TagsPanel from './components/TagsPanel';
 import InstructorsSummary from './components/InstructorsSummary';
 import ConflictDialog from './components/ConflictDialog';
 import { exportCsv } from './utils/csv';
@@ -33,6 +37,10 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [instructors, setInstructors] = useState<Instructor[]>([]);
   const [showInstructors, setShowInstructors] = useState(false);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [showCourses, setShowCourses] = useState(false);
+  const [tags, setTags] = useState<Tag[]>([]);
+  const [showTags, setShowTags] = useState(false);
   const [leftWidth, setLeftWidth] = useState(340);
   const [showConflict, setShowConflict] = useState(false);
   const [csvBannerDismissed, setCsvBannerDismissed] = useState(false);
@@ -47,17 +55,21 @@ export default function App() {
         setScreen('setup');
         return;
       }
-      const [yrs, sects, sett, instr] = await Promise.all([
+      const [yrs, sects, sett, instr, crs, tgs] = await Promise.all([
         loadYears(),
         loadSections(2026, 'Fall'),
         loadSettings(),
-        loadInstructors()
+        loadInstructors(),
+        loadCourses(),
+        loadTags()
       ]);
       setYears(yrs);
       setSelectedYear(yrs[0]);
       setSections(sects);
       setSettings(sett);
       setInstructors(instr);
+      setCourses(crs);
+      setTags(tgs);
       initialLoadDone.current = true;
       setScreen('main');
     }
@@ -83,7 +95,39 @@ export default function App() {
     saveSections(sections, selectedYear, selectedSemester)
       .then(() => {
         if (settings.csvExportPath) {
-          exportCsv(sections, instructors, selectedYear, selectedSemester, settings.csvExportPath).catch(() => {});
+          exportCsv(sections, instructors, courses, selectedYear, selectedSemester, settings.csvExportPath).catch(() => {});
+        }
+        // Update instructor history for current year/semester
+        const termKey = `${selectedYear}-${selectedSemester}`;
+        const updatedInstructors = instructors.map(inst => {
+          const entries = sections
+            .filter(s => s.instructor === inst.name)
+            .map(s => ({ courseName: s.courseName, sectionNumber: s.sectionNumber, location: s.location }));
+          const history = { ...inst.history, [termKey]: entries };
+          return { ...inst, history };
+        });
+        const changed = updatedInstructors.some((inst, i) =>
+          JSON.stringify(inst.history) !== JSON.stringify(instructors[i].history)
+        );
+        if (changed) {
+          setInstructors(updatedInstructors);
+          saveInstructors(updatedInstructors).catch(() => {});
+        }
+
+        // Update course history for current year/semester
+        const updatedCourses = courses.map(course => {
+          const entries = sections
+            .filter(s => s.courseName === course.abbreviation)
+            .map(s => ({ sectionNumber: s.sectionNumber, instructor: s.instructor, location: s.location }));
+          const history = { ...course.history, [termKey]: entries };
+          return { ...course, history };
+        });
+        const coursesChanged = updatedCourses.some((course, i) =>
+          JSON.stringify(course.history) !== JSON.stringify(courses[i].history)
+        );
+        if (coursesChanged) {
+          setCourses(updatedCourses);
+          saveCourses(updatedCourses).catch(() => {});
         }
       })
       .catch(err => {
@@ -122,15 +166,19 @@ export default function App() {
   async function handleSelectFolder() {
     const config = await window.storageApi.selectFolder();
     if (config) {
-      const [yrs, sett, instr] = await Promise.all([
+      const [yrs, sett, instr, crs, tgs] = await Promise.all([
         loadYears(),
         loadSettings(),
-        loadInstructors()
+        loadInstructors(),
+        loadCourses(),
+        loadTags()
       ]);
       setYears(yrs);
       setSelectedYear(yrs[0]);
       setSettings(sett);
       setInstructors(instr);
+      setCourses(crs);
+      setTags(tgs);
       const sects = await loadSections(yrs[0], 'Fall');
       setSections(sects);
       initialLoadDone.current = true;
@@ -141,16 +189,20 @@ export default function App() {
   async function handleChangeFolder() {
     const config = await window.storageApi.changeFolder();
     if (config) {
-      const [yrs, sett, instr] = await Promise.all([
+      const [yrs, sett, instr, crs, tgs] = await Promise.all([
         loadYears(),
         loadSettings(),
-        loadInstructors()
+        loadInstructors(),
+        loadCourses(),
+        loadTags()
       ]);
       setYears(yrs);
       setSelectedYear(yrs[0]);
       setSelectedSemester('Fall');
       setSettings(sett);
       setInstructors(instr);
+      setCourses(crs);
+      setTags(tgs);
       const sects = await loadSections(yrs[0], 'Fall');
       setSections(sects);
     }
@@ -256,7 +308,9 @@ export default function App() {
               <option key={s} value={s}>{s}</option>
             ))}
           </select>
+          <button className="settings-btn" onClick={() => setShowCourses(true)}>Courses</button>
           <button className="settings-btn" onClick={() => setShowInstructors(true)}>Instructors</button>
+          <button className="settings-btn" onClick={() => setShowTags(true)}>Tags</button>
           <button className="settings-btn" onClick={() => setShowSettings(true)}>Settings</button>
         </div>
       </header>
@@ -278,6 +332,9 @@ export default function App() {
               allowedStartTimes={settings.allowedStartTimes}
               allowedEndTimes={settings.allowedEndTimes}
               instructors={instructors}
+              courses={courses}
+              tags={tags}
+              defaultSectionColor={settings.defaultSectionColor}
             />
           ) : (
             <button className="add-section-btn" onClick={() => setShowForm(true)}>
@@ -287,6 +344,7 @@ export default function App() {
           <SectionList
             sections={sections}
             instructors={instructors}
+            tags={tags}
             onEdit={handleEdit}
             onDelete={handleDelete}
             selectedIds={selectedSectionIds}
@@ -313,6 +371,8 @@ export default function App() {
             sections={sections}
             instructors={instructors}
             selectedSectionIds={selectedSectionIds}
+            allowedStartTimes={settings.allowedStartTimes}
+            allowedEndTimes={settings.allowedEndTimes}
             onSelectSection={id => setSelectedSectionIds(prev =>
               prev.size === 1 && prev.has(id) ? new Set() : new Set([id])
             )}
@@ -332,6 +392,20 @@ export default function App() {
           instructors={instructors}
           onSave={(list) => { setInstructors(list); saveInstructors(list); setShowInstructors(false); }}
           onClose={() => setShowInstructors(false)}
+        />
+      )}
+      {showTags && (
+        <TagsPanel
+          tags={tags}
+          onSave={(list) => { setTags(list); saveTags(list); setShowTags(false); }}
+          onClose={() => setShowTags(false)}
+        />
+      )}
+      {showCourses && (
+        <CoursesPanel
+          courses={courses}
+          onSave={(list) => { setCourses(list); saveCourses(list); setShowCourses(false); }}
+          onClose={() => setShowCourses(false)}
         />
       )}
       {showConflict && (

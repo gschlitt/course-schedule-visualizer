@@ -452,6 +452,7 @@ body {
   width: 70px;
   flex-shrink: 0;
   position: relative;
+  height: 900px;
 }
 
 .time-label {
@@ -465,15 +466,37 @@ body {
   transform: translateY(-8px);
 }
 
+.time-label-abs {
+  position: absolute;
+  height: auto;
+  transform: translateY(-50%);
+  white-space: nowrap;
+}
+
 .day-column {
   flex: 1;
   position: relative;
   border-left: 1px solid #eee;
+  height: 900px;
 }
 
 .hour-line {
-  height: 60px;
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
   border-bottom: 1px solid #f0f0f0;
+  pointer-events: none;
+}
+
+.start-time-rule {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1px solid #ddd;
+  z-index: 0;
+  pointer-events: none;
 }
 
 .grid-block {
@@ -635,6 +658,38 @@ body {
   display: flex;
   gap: 6px;
   flex-shrink: 0;
+}
+
+.instructor-row-selected {
+  background: #e8f0fe;
+}
+
+.instructor-history {
+  padding: 6px 10px 10px 20px;
+  font-size: 0.85rem;
+  color: #444;
+}
+
+.instructor-history-empty {
+  padding: 6px 10px 10px 20px;
+  font-size: 0.85rem;
+  color: #888;
+  font-style: italic;
+}
+
+.instructor-history-term {
+  margin-bottom: 6px;
+}
+
+.instructor-history-term-label {
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 2px;
+}
+
+.instructor-history-entry {
+  padding-left: 10px;
+  line-height: 1.5;
 }
 
 /* Settings Panel */
@@ -803,6 +858,147 @@ body {
   background: #3a7bc8;
 }
 
+/* Setup Screen */
+.setup-screen {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: #f5f5f5;
+}
+
+.setup-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 40px;
+  max-width: 480px;
+  text-align: center;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+}
+
+.setup-card h1 {
+  font-size: 1.5rem;
+  margin-bottom: 16px;
+  color: #1a1a2e;
+}
+
+.setup-card p {
+  color: #666;
+  margin-bottom: 24px;
+  line-height: 1.5;
+}
+
+/* Conflict Dialog */
+.conflict-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 200;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.conflict-dialog {
+  background: #fff;
+  border-radius: 12px;
+  padding: 30px;
+  max-width: 440px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+}
+
+.conflict-dialog h3 {
+  font-size: 1.2rem;
+  margin-bottom: 12px;
+  color: #e06c75;
+}
+
+.conflict-dialog p {
+  color: #666;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.conflict-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.conflict-overwrite-btn {
+  padding: 8px 20px;
+  background: #e06c75;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.conflict-overwrite-btn:hover {
+  background: #c75a63;
+}
+
+/* CSV Prompt Banner */
+.csv-prompt-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 24px;
+  background: #eef3fb;
+  border-bottom: 1px solid #c8d8ec;
+  font-size: 0.85rem;
+  color: #555;
+}
+
+.csv-banner-link {
+  background: none;
+  border: none;
+  color: #4A90D9;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.csv-banner-link:hover {
+  color: #3a7bc8;
+}
+
+.csv-banner-dismiss {
+  background: none;
+  border: none;
+  color: #999;
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0;
+}
+
+.csv-banner-dismiss:hover {
+  color: #666;
+}
+
+/* CSV Path Row in Settings */
+.csv-path-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.csv-path-display {
+  flex: 1;
+  font-size: 0.85rem;
+  color: #666;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
 @media (max-width: 800px) {
   .app-main {
     flex-direction: column;
@@ -813,4 +1009,77 @@ body {
   .divider {
     display: none;
   }
+}
+
+/* Tag chips in SectionForm */
+.tag-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #e8f0fe;
+  color: #1a73e8;
+  font-size: 0.8rem;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.tag-chip-remove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #1a73e8;
+  font-size: 0.9rem;
+  line-height: 1;
+  padding: 0 2px;
+}
+
+.tag-chip-remove:hover {
+  color: #c0392b;
+}
+
+/* Tag badges on section cards */
+.section-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-top: 4px;
+}
+
+.section-tag-badge {
+  display: inline-block;
+  background: #e8f0fe;
+  color: #1a73e8;
+  font-size: 0.7rem;
+  padding: 1px 6px;
+  border-radius: 8px;
+}
+
+/* Default color picker in Settings */
+.default-color-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.default-color-row input[type="color"] {
+  width: 40px;
+  height: 32px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 2px;
+  cursor: pointer;
+}
+
+.default-color-label {
+  font-size: 0.85rem;
+  color: #666;
+  font-family: monospace;
 }

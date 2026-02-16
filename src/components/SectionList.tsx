@@ -1,17 +1,18 @@
-import { Section, Day, Instructor } from '../types';
+import { Section, Day, Instructor, Tag } from '../types';
 
 const DAY_ORDER: Day[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 
 interface Props {
   sections: Section[];
   instructors: Instructor[];
+  tags: Tag[];
   onEdit: (section: Section) => void;
   onDelete: (id: string) => void;
   selectedIds: Set<string>;
   onSelect: (id: string) => void;
 }
 
-export default function SectionList({ sections, instructors, onEdit, onDelete, selectedIds, onSelect }: Props) {
+export default function SectionList({ sections, instructors, tags, onEdit, onDelete, selectedIds, onSelect }: Props) {
   if (sections.length === 0) {
     return <p className="empty-msg">No sections added yet.</p>;
   }
@@ -45,6 +46,16 @@ export default function SectionList({ sections, instructors, onEdit, onDelete, s
               </div>
             ))}
             {s.location && <div className="section-detail">{s.location}</div>}
+            {s.tagIds && s.tagIds.length > 0 && (() => {
+              const resolvedTags = s.tagIds.map(id => tags.find(t => t.id === id)).filter(Boolean);
+              return resolvedTags.length > 0 ? (
+                <div className="section-tags">
+                  {resolvedTags.map(tag => (
+                    <span key={tag!.id} className="section-tag-badge">{tag!.name}</span>
+                  ))}
+                </div>
+              ) : null;
+            })()}
           </div>
         );
       })}

@@ -5,6 +5,7 @@ interface Props {
   settings: Settings;
   onSave: (settings: Settings) => void;
   onClose: () => void;
+  onChangeFolder: () => void;
 }
 
 function formatTime(time: string): string {
@@ -117,12 +118,24 @@ function TimeListEditor({ label, hint, times, onChange }: {
   );
 }
 
-export default function SettingsPanel({ settings, onSave, onClose }: Props) {
+export default function SettingsPanel({ settings, onSave, onClose, onChangeFolder }: Props) {
   const [startTimes, setStartTimes] = useState<string[]>(settings.allowedStartTimes);
   const [endTimes, setEndTimes] = useState<string[]>(settings.allowedEndTimes);
+  const [csvPath, setCsvPath] = useState<string>(settings.csvExportPath || '');
+  const [defaultColor, setDefaultColor] = useState<string>(settings.defaultSectionColor || '#4A90D9');
+
+  async function handleBrowseCsv() {
+    const path = await window.storageApi.selectCsvFolder();
+    if (path) setCsvPath(path);
+  }
 
   function handleSave() {
-    onSave({ allowedStartTimes: startTimes, allowedEndTimes: endTimes });
+    onSave({
+      allowedStartTimes: startTimes,
+      allowedEndTimes: endTimes,
+      csvExportPath: csvPath || undefined,
+      defaultSectionColor: defaultColor
+    });
   }
 
   return (
@@ -146,6 +159,39 @@ export default function SettingsPanel({ settings, onSave, onClose }: Props) {
             times={endTimes}
             onChange={setEndTimes}
           />
+
+          <div className="time-picker-section">
+            <h4>Default Section Color</h4>
+            <p className="settings-hint">New sections will use this color by default. You can override it per-section.</p>
+            <div className="default-color-row">
+              <input
+                type="color"
+                value={defaultColor}
+                onChange={e => setDefaultColor(e.target.value)}
+              />
+              <span className="default-color-label">{defaultColor}</span>
+            </div>
+          </div>
+
+          <div className="time-picker-section">
+            <h4>Data Storage Folder</h4>
+            <p className="settings-hint">The shared folder where schedule data (JSON) is stored.</p>
+            <div className="csv-path-row">
+              <button type="button" className="btn-secondary" onClick={onChangeFolder}>Change Folder...</button>
+            </div>
+          </div>
+
+          <div className="time-picker-section">
+            <h4>CSV Export Folder</h4>
+            <p className="settings-hint">Auto-export a readable CSV file whenever sections change.</p>
+            <div className="csv-path-row">
+              <span className="csv-path-display">{csvPath || 'Not set'}</span>
+              <button type="button" className="btn-secondary" onClick={handleBrowseCsv}>Browse...</button>
+              {csvPath && (
+                <button type="button" className="btn-secondary" onClick={() => setCsvPath('')}>Clear</button>
+              )}
+            </div>
+          </div>
         </div>
 
         <div className="settings-footer">

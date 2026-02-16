@@ -27,6 +27,8 @@ interface Props {
   instructors: Instructor[];
   selectedSectionIds: Set<string>;
   onSelectSection: (id: string) => void;
+  allowedStartTimes: string[];
+  allowedEndTimes: string[];
 }
 
 interface OverlapGroup {
@@ -71,7 +73,15 @@ function groupOverlaps(dayBlocks: DayBlock[]): OverlapGroup[] {
   return groups;
 }
 
-export default function WeeklyGrid({ sections, instructors, selectedSectionIds, onSelectSection }: Props) {
+function formatTime(time: string): string {
+  const [h, m] = time.split(':').map(Number);
+  const suffix = h >= 12 ? 'PM' : 'AM';
+  const display = h > 12 ? h - 12 : h === 0 ? 12 : h;
+  if (m === 0) return `${display} ${suffix}`;
+  return `${display}:${String(m).padStart(2, '0')} ${suffix}`;
+}
+
+export default function WeeklyGrid({ sections, instructors, selectedSectionIds, onSelectSection, allowedStartTimes, allowedEndTimes }: Props) {
   function getAbbr(instructorName: string): string {
     const inst = instructors.find(i => i.name === instructorName);
     return inst?.abbreviation || '';
@@ -164,6 +174,17 @@ export default function WeeklyGrid({ sections, instructors, selectedSectionIds, 
     });
   }
 
+  // Filter start times to those within the grid range
+  const endTimesSet = new Set(allowedEndTimes);
+  const visibleStartTimes = allowedStartTimes
+    .filter(t => {
+      const mins = timeToMinutes(t);
+      return mins >= START_HOUR * 60 && mins < END_HOUR * 60;
+    })
+    .sort();
+  // Labels: only start times that are NOT also end times
+  const labelTimes = visibleStartTimes.filter(t => !endTimesSet.has(t));
+
   return (
     <div className="weekly-grid">
       <div className="grid-header">
@@ -174,11 +195,15 @@ export default function WeeklyGrid({ sections, instructors, selectedSectionIds, 
       </div>
       <div className="grid-body">
         <div className="time-column">
-          {HOURS.map(hour => (
-            <div key={hour} className="time-label">
-              {formatHour(hour)}
-            </div>
-          ))}
+          {labelTimes.map(time => {
+            const mins = timeToMinutes(time) - START_HOUR * 60;
+            const top = (mins / totalMinutes) * 100;
+            return (
+              <div key={time} className="time-label time-label-abs" style={{ top: `${top}%` }}>
+                {formatTime(time)}
+              </div>
+            );
+          })}
         </div>
         {DAYS.map(day => {
           const dayBlocks = getBlocksForDay(day);
@@ -186,9 +211,17 @@ export default function WeeklyGrid({ sections, instructors, selectedSectionIds, 
 
           return (
             <div key={day} className="day-column">
-              {HOURS.map(hour => (
-                <div key={hour} className="hour-line" />
-              ))}
+              {visibleStartTimes.map(time => {
+                const mins = timeToMinutes(time) - START_HOUR * 60;
+                const top = (mins / totalMinutes) * 100;
+                return (
+                  <div
+                    key={time}
+                    className="start-time-rule"
+                    style={{ top: `${top}%` }}
+                  />
+                );
+              })}
               {groups.map(group => {
                 if (group.blocks.length === 1) {
                   const block = group.blocks[0];

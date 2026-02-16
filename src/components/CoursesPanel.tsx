@@ -1,55 +1,75 @@
 import { useState } from 'react';
-import { Instructor } from '../types';
+import { Course } from '../types';
 
 interface Props {
-  instructors: Instructor[];
-  onSave: (instructors: Instructor[]) => void;
+  courses: Course[];
+  onSave: (courses: Course[]) => void;
   onClose: () => void;
 }
 
-export default function InstructorsPanel({ instructors, onSave, onClose }: Props) {
-  const [list, setList] = useState<Instructor[]>(instructors);
-  const [newName, setNewName] = useState('');
+export default function CoursesPanel({ courses, onSave, onClose }: Props) {
+  const [list, setList] = useState<Course[]>(courses);
+  const [newTitle, setNewTitle] = useState('');
   const [newAbbr, setNewAbbr] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editName, setEditName] = useState('');
+  const [editTitle, setEditTitle] = useState('');
   const [editAbbr, setEditAbbr] = useState('');
+  const [error, setError] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
+  function isDuplicate(title: string, abbreviation: string, excludeId?: string): string | null {
+    const other = list.filter(c => c.id !== excludeId);
+    if (other.some(c => c.title.toLowerCase() === title.toLowerCase())) {
+      return 'A course with that title already exists.';
+    }
+    if (other.some(c => c.abbreviation.toLowerCase() === abbreviation.toLowerCase())) {
+      return 'A course with that abbreviation already exists.';
+    }
+    return null;
+  }
+
   function handleAdd() {
-    const name = newName.trim();
+    const title = newTitle.trim();
     const abbreviation = newAbbr.trim();
-    if (!name || !abbreviation) return;
-    setList([...list, { id: crypto.randomUUID(), name, abbreviation }]);
-    setNewName('');
+    if (!title || !abbreviation) return;
+    const dup = isDuplicate(title, abbreviation);
+    if (dup) { setError(dup); return; }
+    setList([...list, { id: crypto.randomUUID(), title, abbreviation }]);
+    setNewTitle('');
     setNewAbbr('');
+    setError('');
   }
 
   function handleDelete(id: string) {
-    setList(list.filter(i => i.id !== id));
+    setList(list.filter(c => c.id !== id));
     if (selectedId === id) setSelectedId(null);
   }
 
-  function startEdit(instructor: Instructor) {
-    setEditingId(instructor.id);
-    setEditName(instructor.name);
-    setEditAbbr(instructor.abbreviation);
+  function startEdit(course: Course) {
+    setEditingId(course.id);
+    setEditTitle(course.title);
+    setEditAbbr(course.abbreviation);
+    setError('');
   }
 
   function saveEdit() {
-    const name = editName.trim();
+    const title = editTitle.trim();
     const abbreviation = editAbbr.trim();
-    if (!name || !abbreviation || !editingId) return;
-    setList(list.map(i => i.id === editingId ? { ...i, name, abbreviation } : i));
+    if (!title || !abbreviation || !editingId) return;
+    const dup = isDuplicate(title, abbreviation, editingId);
+    if (dup) { setError(dup); return; }
+    setList(list.map(c => c.id === editingId ? { ...c, title, abbreviation } : c));
     setEditingId(null);
-    setEditName('');
+    setEditTitle('');
     setEditAbbr('');
+    setError('');
   }
 
   function cancelEdit() {
     setEditingId(null);
-    setEditName('');
+    setEditTitle('');
     setEditAbbr('');
+    setError('');
   }
 
   function handleSave() {
@@ -60,22 +80,22 @@ export default function InstructorsPanel({ instructors, onSave, onClose }: Props
     setSelectedId(prev => prev === id ? null : id);
   }
 
-  function renderHistory(inst: Instructor) {
-    if (!inst.history || Object.keys(inst.history).length === 0) {
+  function renderHistory(course: Course) {
+    if (!course.history || Object.keys(course.history).length === 0) {
       return <div className="instructor-history-empty">No teaching history recorded.</div>;
     }
-    const sortedKeys = Object.keys(inst.history).sort();
+    const sortedKeys = Object.keys(course.history).sort();
     return (
       <div className="instructor-history">
         {sortedKeys.map(key => {
-          const entries = inst.history![key];
+          const entries = course.history![key];
           if (entries.length === 0) return null;
           return (
             <div key={key} className="instructor-history-term">
               <div className="instructor-history-term-label">{key}</div>
               {entries.map((entry, i) => (
                 <div key={i} className="instructor-history-entry">
-                  {entry.courseName} &sect;{entry.sectionNumber} &mdash; {entry.location}
+                  &sect;{entry.sectionNumber} &mdash; {entry.instructor} &mdash; {entry.location}
                 </div>
               ))}
             </div>
@@ -89,16 +109,17 @@ export default function InstructorsPanel({ instructors, onSave, onClose }: Props
     <div className="settings-overlay" onClick={onClose}>
       <div className="settings-panel" onClick={e => e.stopPropagation()}>
         <div className="settings-header">
-          <h2>Instructors</h2>
+          <h2>Courses</h2>
           <button className="settings-close" onClick={onClose}>&times;</button>
         </div>
         <div className="settings-body">
+          {error && <p style={{ color: '#e74c3c', margin: '0 0 8px' }}>{error}</p>}
           <div className="time-input-row" style={{ marginBottom: 16 }}>
             <input
               type="text"
-              value={newName}
-              onChange={e => setNewName(e.target.value)}
-              placeholder="New instructor name"
+              value={newTitle}
+              onChange={e => setNewTitle(e.target.value)}
+              placeholder="Course title"
               onKeyDown={e => e.key === 'Enter' && handleAdd()}
             />
             <input
@@ -106,26 +127,26 @@ export default function InstructorsPanel({ instructors, onSave, onClose }: Props
               value={newAbbr}
               onChange={e => setNewAbbr(e.target.value)}
               placeholder="Abbr"
-              maxLength={4}
-              style={{ width: 60 }}
+              maxLength={10}
+              style={{ width: 80 }}
               onKeyDown={e => e.key === 'Enter' && handleAdd()}
             />
             <button className="time-add-btn" onClick={handleAdd}>Add</button>
           </div>
           <div className="instructor-list">
-            {list.map(inst => (
-              <div key={inst.id}>
+            {list.map(course => (
+              <div key={course.id}>
                 <div
-                  className={`instructor-row${selectedId === inst.id ? ' instructor-row-selected' : ''}`}
-                  onClick={() => editingId !== inst.id && handleRowClick(inst.id)}
-                  style={{ cursor: editingId === inst.id ? 'default' : 'pointer' }}
+                  className={`instructor-row${selectedId === course.id ? ' instructor-row-selected' : ''}`}
+                  onClick={() => editingId !== course.id && handleRowClick(course.id)}
+                  style={{ cursor: editingId === course.id ? 'default' : 'pointer' }}
                 >
-                  {editingId === inst.id ? (
+                  {editingId === course.id ? (
                     <>
                       <input
                         type="text"
-                        value={editName}
-                        onChange={e => setEditName(e.target.value)}
+                        value={editTitle}
+                        onChange={e => setEditTitle(e.target.value)}
                         onKeyDown={e => e.key === 'Enter' && saveEdit()}
                         onClick={e => e.stopPropagation()}
                         autoFocus
@@ -136,8 +157,8 @@ export default function InstructorsPanel({ instructors, onSave, onClose }: Props
                         onChange={e => setEditAbbr(e.target.value)}
                         onKeyDown={e => e.key === 'Enter' && saveEdit()}
                         onClick={e => e.stopPropagation()}
-                        maxLength={4}
-                        style={{ width: 60 }}
+                        maxLength={10}
+                        style={{ width: 80 }}
                         placeholder="Abbr"
                       />
                       <div className="instructor-actions">
@@ -147,19 +168,19 @@ export default function InstructorsPanel({ instructors, onSave, onClose }: Props
                     </>
                   ) : (
                     <>
-                      <span className="instructor-name">{inst.name} ({inst.abbreviation})</span>
+                      <span className="instructor-name">{course.abbreviation} — {course.title}</span>
                       <div className="instructor-actions">
-                        <button className="btn-sm" onClick={(e) => { e.stopPropagation(); startEdit(inst); }}>Edit</button>
-                        <button className="btn-sm btn-danger" onClick={(e) => { e.stopPropagation(); handleDelete(inst.id); }}>Delete</button>
+                        <button className="btn-sm" onClick={(e) => { e.stopPropagation(); startEdit(course); }}>Edit</button>
+                        <button className="btn-sm btn-danger" onClick={(e) => { e.stopPropagation(); handleDelete(course.id); }}>Delete</button>
                       </div>
                     </>
                   )}
                 </div>
-                {selectedId === inst.id && editingId !== inst.id && renderHistory(inst)}
+                {selectedId === course.id && editingId !== course.id && renderHistory(course)}
               </div>
             ))}
             {list.length === 0 && (
-              <p className="empty-msg">No instructors added yet.</p>
+              <p className="empty-msg">No courses added yet.</p>
             )}
           </div>
         </div>

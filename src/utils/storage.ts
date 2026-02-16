@@ -1,95 +1,72 @@
-import { Section, Settings, Day, Instructor, Semester } from '../types';
+import { Section, Settings, Instructor, Course, Semester, Tag } from '../types';
 
-const OLD_SECTIONS_KEY = 'course-schedule-sections';
-const YEARS_KEY = 'course-schedule-years';
-const SETTINGS_KEY = 'course-schedule-settings';
-const INSTRUCTORS_KEY = 'course-schedule-instructors';
-
-function sectionsKey(year: number, semester: Semester): string {
-  return `course-schedule-sections-${year}-${semester}`;
+function sectionsFilename(year: number, semester: Semester): string {
+  return `sections-${year}-${semester}.json`;
 }
 
-interface LegacySection {
-  id: string;
-  courseName: string;
-  sectionNumber: string;
-  instructor: string;
-  days: Day[];
-  startTime: string;
-  endTime: string;
-  location: string;
-  color: string;
-}
+// Track last-known mtimeMs for each file (for optimistic concurrency)
+const lastKnownTimestamps = new Map<string, number>();
 
-function migrateSection(raw: LegacySection | Section): Section {
-  if ('meetings' in raw) return raw as Section;
-  const legacy = raw as LegacySection;
-  return {
-    id: legacy.id,
-    courseName: legacy.courseName,
-    sectionNumber: legacy.sectionNumber,
-    instructor: legacy.instructor,
-    meetings: legacy.days.map(day => ({
-      day,
-      startTime: legacy.startTime,
-      endTime: legacy.endTime,
-    })),
-    location: legacy.location,
-    color: legacy.color,
-  };
-}
-
-let migrationDone = false;
-
-function runMigration(): void {
-  if (migrationDone) return;
-  migrationDone = true;
-  const oldData = localStorage.getItem(OLD_SECTIONS_KEY);
-  if (!oldData) return;
-  // Only migrate if no keyed data exists yet
-  const targetKey = sectionsKey(2026, 'Fall');
-  if (localStorage.getItem(targetKey)) return;
-  try {
-    const parsed: (LegacySection | Section)[] = JSON.parse(oldData);
-    const migrated = parsed.map(migrateSection);
-    localStorage.setItem(targetKey, JSON.stringify(migrated));
-    localStorage.removeItem(OLD_SECTIONS_KEY);
-  } catch {
-    // If migration fails, leave old data in place
+export class ConflictError extends Error {
+  currentData: unknown;
+  constructor(filename: string, currentData: unknown) {
+    super(`Conflict detected on ${filename}`);
+    this.name = 'ConflictError';
+    this.currentData = currentData;
   }
 }
 
-export function loadYears(): number[] {
+async function readFile<T>(filename: string, fallback: T): Promise<T> {
   try {
-    const data = localStorage.getItem(YEARS_KEY);
-    if (data) {
-      const years: number[] = JSON.parse(data);
-      return years.length > 0 ? years : [2026];
+    const result = await window.storageApi.read(filename);
+    if (result.data !== null) {
+      lastKnownTimestamps.set(filename, result.lastModified);
+      return result.data as T;
     }
-    return [2026];
   } catch {
-    return [2026];
+    // ignore
+  }
+  return fallback;
+}
+
+async function writeFile(filename: string, data: unknown): Promise<void> {
+  const expectedLastModified = lastKnownTimestamps.get(filename) ?? 0;
+  const result = await window.storageApi.write(filename, { data, expectedLastModified });
+  if (result.conflict) {
+    throw new ConflictError(filename, result.currentData);
+  }
+  if (result.success) {
+    lastKnownTimestamps.set(filename, result.lastModified);
   }
 }
 
-export function saveYears(years: number[]): void {
-  localStorage.setItem(YEARS_KEY, JSON.stringify(years));
-}
-
-export function loadSections(year: number, semester: Semester): Section[] {
-  runMigration();
-  try {
-    const data = localStorage.getItem(sectionsKey(year, semester));
-    if (!data) return [];
-    const parsed: (LegacySection | Section)[] = JSON.parse(data);
-    return parsed.map(migrateSection);
-  } catch {
-    return [];
+// Force write (skip conflict check) - used when user chooses "Overwrite"
+async function forceWriteFile(filename: string, data: unknown): Promise<void> {
+  const result = await window.storageApi.write(filename, { data, expectedLastModified: 0 });
+  if (result.success) {
+    lastKnownTimestamps.set(filename, result.lastModified);
   }
 }
 
-export function saveSections(sections: Section[], year: number, semester: Semester): void {
-  localStorage.setItem(sectionsKey(year, semester), JSON.stringify(sections));
+export async function loadYears(): Promise<number[]> {
+  const years = await readFile<number[]>('years.json', [2026]);
+  return years.length > 0 ? years : [2026];
+}
+
+export async function saveYears(years: number[]): Promise<void> {
+  await writeFile('years.json', years);
+}
+
+export async function loadSections(year: number, semester: Semester): Promise<Section[]> {
+  return readFile<Section[]>(sectionsFilename(year, semester), []);
+}
+
+export async function saveSections(sections: Section[], year: number, semester: Semester): Promise<void> {
+  await writeFile(sectionsFilename(year, semester), sections);
+}
+
+export async function forceSaveSections(sections: Section[], year: number, semester: Semester): Promise<void> {
+  await forceWriteFile(sectionsFilename(year, semester), sections);
 }
 
 function generateTimes(startHour: number, endHour: number, intervalMin: number): string[] {
@@ -108,28 +85,40 @@ export const DEFAULT_SETTINGS: Settings = {
   allowedEndTimes: generateTimes(7, 22, 30),
 };
 
-export function loadSettings(): Settings {
-  try {
-    const data = localStorage.getItem(SETTINGS_KEY);
-    return data ? JSON.parse(data) : DEFAULT_SETTINGS;
-  } catch {
-    return DEFAULT_SETTINGS;
-  }
+export async function loadSettings(): Promise<Settings> {
+  return readFile<Settings>('settings.json', DEFAULT_SETTINGS);
 }
 
-export function saveSettings(settings: Settings): void {
-  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+export async function saveSettings(settings: Settings): Promise<void> {
+  await writeFile('settings.json', settings);
 }
 
-export function loadInstructors(): Instructor[] {
-  try {
-    const data = localStorage.getItem(INSTRUCTORS_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch {
-    return [];
-  }
+export async function loadInstructors(): Promise<Instructor[]> {
+  return readFile<Instructor[]>('instructors.json', []);
 }
 
-export function saveInstructors(instructors: Instructor[]): void {
-  localStorage.setItem(INSTRUCTORS_KEY, JSON.stringify(instructors));
+export async function saveInstructors(instructors: Instructor[]): Promise<void> {
+  await writeFile('instructors.json', instructors);
+}
+
+export async function loadCourses(): Promise<Course[]> {
+  return readFile<Course[]>('courses.json', []);
+}
+
+export async function saveCourses(courses: Course[]): Promise<void> {
+  await writeFile('courses.json', courses);
+}
+
+export async function loadTags(): Promise<Tag[]> {
+  return readFile<Tag[]>('tags.json', []);
+}
+
+export async function saveTags(tags: Tag[]): Promise<void> {
+  await writeFile('tags.json', tags);
+}
+
+// Refresh timestamps for a file (used after conflict resolution with "Reload")
+export function refreshTimestamp(year: number, semester: Semester): void {
+  // Will be updated on next read
+  lastKnownTimestamps.delete(sectionsFilename(year, semester));
 }
