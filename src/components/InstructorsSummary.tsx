@@ -23,7 +23,7 @@ export default function InstructorsSummary({ instructors, sections, selectedIds,
                 className="instructor-summary-name"
                 onClick={() => onSelectInstructor(inst.name)}
               >
-                {inst.name}
+                {inst.name}{inst.abbreviation ? ` (${inst.abbreviation})` : ''}
               </span>
               {assigned.length > 0 ? (
                 <div className="instructor-summary-sections">

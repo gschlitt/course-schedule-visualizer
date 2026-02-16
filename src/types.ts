@@ -21,9 +21,11 @@ export interface Section {
 export interface Instructor {
   id: string;
   name: string;
+  abbreviation: string;
 }
 
 export interface Settings {
   allowedStartTimes: string[];
   allowedEndTimes: string[];
+  csvExportPath?: string;
 }

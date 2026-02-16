@@ -10,14 +10,18 @@ interface Props {
 export default function InstructorsPanel({ instructors, onSave, onClose }: Props) {
   const [list, setList] = useState<Instructor[]>(instructors);
   const [newName, setNewName] = useState('');
+  const [newAbbr, setNewAbbr] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+  const [editAbbr, setEditAbbr] = useState('');
 
   function handleAdd() {
     const name = newName.trim();
-    if (!name) return;
-    setList([...list, { id: crypto.randomUUID(), name }]);
+    const abbreviation = newAbbr.trim();
+    if (!name || !abbreviation) return;
+    setList([...list, { id: crypto.randomUUID(), name, abbreviation }]);
     setNewName('');
+    setNewAbbr('');
   }
 
   function handleDelete(id: string) {
@@ -27,19 +31,23 @@ export default function InstructorsPanel({ instructors, onSave, onClose }: Props
   function startEdit(instructor: Instructor) {
     setEditingId(instructor.id);
     setEditName(instructor.name);
+    setEditAbbr(instructor.abbreviation);
   }
 
   function saveEdit() {
     const name = editName.trim();
-    if (!name || !editingId) return;
-    setList(list.map(i => i.id === editingId ? { ...i, name } : i));
+    const abbreviation = editAbbr.trim();
+    if (!name || !abbreviation || !editingId) return;
+    setList(list.map(i => i.id === editingId ? { ...i, name, abbreviation } : i));
     setEditingId(null);
     setEditName('');
+    setEditAbbr('');
   }
 
   function cancelEdit() {
     setEditingId(null);
     setEditName('');
+    setEditAbbr('');
   }
 
   function handleSave() {
@@ -62,6 +70,15 @@ export default function InstructorsPanel({ instructors, onSave, onClose }: Props
               placeholder="New instructor name"
               onKeyDown={e => e.key === 'Enter' && handleAdd()}
             />
+            <input
+              type="text"
+              value={newAbbr}
+              onChange={e => setNewAbbr(e.target.value)}
+              placeholder="Abbr"
+              maxLength={4}
+              style={{ width: 60 }}
+              onKeyDown={e => e.key === 'Enter' && handleAdd()}
+            />
             <button className="time-add-btn" onClick={handleAdd}>Add</button>
           </div>
           <div className="instructor-list">
@@ -76,6 +93,15 @@ export default function InstructorsPanel({ instructors, onSave, onClose }: Props
                       onKeyDown={e => e.key === 'Enter' && saveEdit()}
                       autoFocus
                     />
+                    <input
+                      type="text"
+                      value={editAbbr}
+                      onChange={e => setEditAbbr(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && saveEdit()}
+                      maxLength={4}
+                      style={{ width: 60 }}
+                      placeholder="Abbr"
+                    />
                     <div className="instructor-actions">
                       <button className="btn-sm" onClick={saveEdit}>Save</button>
                       <button className="btn-sm" onClick={cancelEdit}>Cancel</button>
@@ -83,7 +109,7 @@ export default function InstructorsPanel({ instructors, onSave, onClose }: Props
                   </>
                 ) : (
                   <>
-                    <span className="instructor-name">{inst.name}</span>
+                    <span className="instructor-name">{inst.name} ({inst.abbreviation})</span>
                     <div className="instructor-actions">
                       <button className="btn-sm" onClick={() => startEdit(inst)}>Edit</button>
                       <button className="btn-sm btn-danger" onClick={() => handleDelete(inst.id)}>Delete</button>

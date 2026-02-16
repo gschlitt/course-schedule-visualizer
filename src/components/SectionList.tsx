@@ -1,16 +1,17 @@
-import { Section, Day } from '../types';
+import { Section, Day, Instructor } from '../types';
 
 const DAY_ORDER: Day[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 
 interface Props {
   sections: Section[];
+  instructors: Instructor[];
   onEdit: (section: Section) => void;
   onDelete: (id: string) => void;
   selectedIds: Set<string>;
   onSelect: (id: string) => void;
 }
 
-export default function SectionList({ sections, onEdit, onDelete, selectedIds, onSelect }: Props) {
+export default function SectionList({ sections, instructors, onEdit, onDelete, selectedIds, onSelect }: Props) {
   if (sections.length === 0) {
     return <p className="empty-msg">No sections added yet.</p>;
   }
@@ -37,7 +38,7 @@ export default function SectionList({ sections, onEdit, onDelete, selectedIds, o
                 <button className="btn-icon btn-icon-danger" onClick={e => { e.stopPropagation(); onDelete(s.id); }} title="Delete">&times;</button>
               </div>
             </div>
-            {s.instructor && <div className="section-detail">{s.instructor}</div>}
+            {s.instructor && <div className="section-detail">{s.instructor}{(() => { const inst = instructors.find(i => i.name === s.instructor); return inst?.abbreviation ? ` (${inst.abbreviation})` : ''; })()}</div>}
             {sorted.map((m, i) => (
               <div key={i} className="section-detail">
                 {m.day} &middot; {m.startTime}–{m.endTime}

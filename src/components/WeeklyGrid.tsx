@@ -1,4 +1,4 @@
-import { Section, Day } from '../types';
+import { Section, Day, Instructor } from '../types';
 
 const DAYS: Day[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
 const START_HOUR = 7;
@@ -24,6 +24,7 @@ interface DayBlock {
 
 interface Props {
   sections: Section[];
+  instructors: Instructor[];
   selectedSectionIds: Set<string>;
   onSelectSection: (id: string) => void;
 }
@@ -70,7 +71,11 @@ function groupOverlaps(dayBlocks: DayBlock[]): OverlapGroup[] {
   return groups;
 }
 
-export default function WeeklyGrid({ sections, selectedSectionIds, onSelectSection }: Props) {
+export default function WeeklyGrid({ sections, instructors, selectedSectionIds, onSelectSection }: Props) {
+  function getAbbr(instructorName: string): string {
+    const inst = instructors.find(i => i.name === instructorName);
+    return inst?.abbreviation || '';
+  }
   const totalMinutes = (END_HOUR - START_HOUR) * 60;
   const hasSelection = selectedSectionIds.size > 0;
 
@@ -117,7 +122,7 @@ export default function WeeklyGrid({ sections, selectedSectionIds, onSelectSecti
         {group.blocks.map((b, i) => (
           <div key={b.section.id} className="merged-entry" style={i > 0 ? { borderTop: '1px solid rgba(255,255,255,0.3)' } : undefined}>
             <span className="block-name block-name-clickable" style={{ color: '#fff', backgroundColor: b.section.color, borderRadius: 2, padding: '0 2px' }} onClick={() => onSelectSection(b.section.id)}>
-              {b.section.courseName}
+              {b.section.courseName}{getAbbr(b.section.instructor) ? ` (${getAbbr(b.section.instructor)})` : ''}
             </span>
             {b.section.location && <span className="block-loc">{b.section.location}</span>}
           </div>
@@ -150,9 +155,9 @@ export default function WeeklyGrid({ sections, selectedSectionIds, onSelectSecti
             opacity: blockOpacity(block.section.id),
             transition: 'opacity 0.15s',
           }}
-          title={`${block.section.courseName} ${block.section.sectionNumber}\n${block.startTime}–${block.endTime}\n${block.section.instructor}\n${block.section.location}`}
+          title={`${block.section.courseName}${getAbbr(block.section.instructor) ? ` (${getAbbr(block.section.instructor)})` : ''} ${block.section.sectionNumber}\n${block.startTime}–${block.endTime}\n${block.section.instructor}\n${block.section.location}`}
         >
-          <span className="block-name block-name-clickable" onClick={() => onSelectSection(block.section.id)}>{block.section.courseName}</span>
+          <span className="block-name block-name-clickable" onClick={() => onSelectSection(block.section.id)}>{block.section.courseName}{getAbbr(block.section.instructor) ? ` (${getAbbr(block.section.instructor)})` : ''}</span>
           {block.section.location && <span className="block-loc">{block.section.location}</span>}
         </div>
       );
@@ -203,9 +208,9 @@ export default function WeeklyGrid({ sections, selectedSectionIds, onSelectSecti
                         opacity: blockOpacity(block.section.id),
                         transition: 'opacity 0.15s',
                       }}
-                      title={`${block.section.courseName} ${block.section.sectionNumber}\n${block.startTime}–${block.endTime}\n${block.section.instructor}\n${block.section.location}`}
+                      title={`${block.section.courseName}${getAbbr(block.section.instructor) ? ` (${getAbbr(block.section.instructor)})` : ''} ${block.section.sectionNumber}\n${block.startTime}–${block.endTime}\n${block.section.instructor}\n${block.section.location}`}
                     >
-                      <span className="block-name block-name-clickable" onClick={() => onSelectSection(block.section.id)}>{block.section.courseName}</span>
+                      <span className="block-name block-name-clickable" onClick={() => onSelectSection(block.section.id)}>{block.section.courseName}{getAbbr(block.section.instructor) ? ` (${getAbbr(block.section.instructor)})` : ''}</span>
                       {block.section.location && <span className="block-loc">{block.section.location}</span>}
                     </div>
                   );

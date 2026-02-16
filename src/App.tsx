@@ -1,42 +1,97 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Section, Settings, Instructor, Semester } from './types';
-import { loadSections, saveSections, loadSettings, saveSettings, loadInstructors, saveInstructors, loadYears, saveYears } from './utils/storage';
+import {
+  loadSections, saveSections, forceSaveSections,
+  loadSettings, saveSettings,
+  loadInstructors, saveInstructors,
+  loadYears, saveYears,
+  DEFAULT_SETTINGS, ConflictError, refreshTimestamp
+} from './utils/storage';
 import SectionForm from './components/SectionForm';
 import SectionList from './components/SectionList';
 import ScheduleView from './components/ScheduleView';
 import SettingsPanel from './components/SettingsPanel';
 import InstructorsPanel from './components/InstructorsPanel';
 import InstructorsSummary from './components/InstructorsSummary';
+import ConflictDialog from './components/ConflictDialog';
+import { exportCsv } from './utils/csv';
 
 const SEMESTERS: Semester[] = ['Fall', 'Winter', 'Summer'];
 
+type AppScreen = 'loading' | 'setup' | 'main';
+
 export default function App() {
-  const [years, setYears] = useState<number[]>(() => loadYears());
-  const [selectedYear, setSelectedYear] = useState<number>(() => loadYears()[0]);
+  const [screen, setScreen] = useState<AppScreen>('loading');
+  const [years, setYears] = useState<number[]>([2026]);
+  const [selectedYear, setSelectedYear] = useState<number>(2026);
   const [selectedSemester, setSelectedSemester] = useState<Semester>('Fall');
-  const [sections, setSections] = useState<Section[]>(() => loadSections(loadYears()[0], 'Fall'));
+  const [sections, setSections] = useState<Section[]>([]);
   const [editingSection, setEditingSection] = useState<Section | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [selectedSectionIds, setSelectedSectionIds] = useState<Set<string>>(new Set());
-  const [settings, setSettings] = useState<Settings>(() => loadSettings());
+  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [showSettings, setShowSettings] = useState(false);
-  const [instructors, setInstructors] = useState<Instructor[]>(() => loadInstructors());
+  const [instructors, setInstructors] = useState<Instructor[]>([]);
   const [showInstructors, setShowInstructors] = useState(false);
   const [leftWidth, setLeftWidth] = useState(340);
+  const [showConflict, setShowConflict] = useState(false);
+  const [csvBannerDismissed, setCsvBannerDismissed] = useState(false);
   const dragging = useRef(false);
+  const initialLoadDone = useRef(false);
 
-  // Reload sections when year/semester changes
+  // Initial load: check config, then load all data
   useEffect(() => {
-    setSections(loadSections(selectedYear, selectedSemester));
-    setEditingSection(null);
-    setShowForm(false);
-    setSelectedSectionIds(new Set());
+    async function init() {
+      const config = await window.storageApi.getConfig();
+      if (!config) {
+        setScreen('setup');
+        return;
+      }
+      const [yrs, sects, sett, instr] = await Promise.all([
+        loadYears(),
+        loadSections(2026, 'Fall'),
+        loadSettings(),
+        loadInstructors()
+      ]);
+      setYears(yrs);
+      setSelectedYear(yrs[0]);
+      setSections(sects);
+      setSettings(sett);
+      setInstructors(instr);
+      initialLoadDone.current = true;
+      setScreen('main');
+    }
+    init();
+  }, []);
+
+  // Reload sections when year/semester changes (after initial load)
+  useEffect(() => {
+    if (!initialLoadDone.current) return;
+    async function reload() {
+      const sects = await loadSections(selectedYear, selectedSemester);
+      setSections(sects);
+      setEditingSection(null);
+      setShowForm(false);
+      setSelectedSectionIds(new Set());
+    }
+    reload();
   }, [selectedYear, selectedSemester]);
 
-  // Save sections when they change
+  // Save sections when they change (after initial load)
   useEffect(() => {
-    saveSections(sections, selectedYear, selectedSemester);
-  }, [sections, selectedYear, selectedSemester]);
+    if (!initialLoadDone.current) return;
+    saveSections(sections, selectedYear, selectedSemester)
+      .then(() => {
+        if (settings.csvExportPath) {
+          exportCsv(sections, instructors, selectedYear, selectedSemester, settings.csvExportPath).catch(() => {});
+        }
+      })
+      .catch(err => {
+        if (err instanceof ConflictError) {
+          setShowConflict(true);
+        }
+      });
+  }, [sections, selectedYear, selectedSemester, settings.csvExportPath]);
 
   const onMouseDown = useCallback(() => {
     dragging.current = true;
@@ -64,11 +119,48 @@ export default function App() {
     };
   }, []);
 
+  async function handleSelectFolder() {
+    const config = await window.storageApi.selectFolder();
+    if (config) {
+      const [yrs, sett, instr] = await Promise.all([
+        loadYears(),
+        loadSettings(),
+        loadInstructors()
+      ]);
+      setYears(yrs);
+      setSelectedYear(yrs[0]);
+      setSettings(sett);
+      setInstructors(instr);
+      const sects = await loadSections(yrs[0], 'Fall');
+      setSections(sects);
+      initialLoadDone.current = true;
+      setScreen('main');
+    }
+  }
+
+  async function handleChangeFolder() {
+    const config = await window.storageApi.changeFolder();
+    if (config) {
+      const [yrs, sett, instr] = await Promise.all([
+        loadYears(),
+        loadSettings(),
+        loadInstructors()
+      ]);
+      setYears(yrs);
+      setSelectedYear(yrs[0]);
+      setSelectedSemester('Fall');
+      setSettings(sett);
+      setInstructors(instr);
+      const sects = await loadSections(yrs[0], 'Fall');
+      setSections(sects);
+    }
+  }
+
   function handleAddYear() {
     const nextYear = Math.max(...years) + 1;
     const updated = [...years, nextYear];
     setYears(updated);
-    saveYears(updated);
+    saveYears(updated).catch(() => {});
   }
 
   function handleSubmit(section: Section) {
@@ -103,6 +195,43 @@ export default function App() {
     }
   }
 
+  async function handleConflictOverwrite() {
+    setShowConflict(false);
+    await forceSaveSections(sections, selectedYear, selectedSemester);
+  }
+
+  async function handleConflictReload() {
+    setShowConflict(false);
+    refreshTimestamp(selectedYear, selectedSemester);
+    const sects = await loadSections(selectedYear, selectedSemester);
+    setSections(sects);
+  }
+
+  if (screen === 'loading') {
+    return (
+      <div className="setup-screen">
+        <div className="setup-card">
+          <h1>Course Schedule Visualizer</h1>
+          <p>Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (screen === 'setup') {
+    return (
+      <div className="setup-screen">
+        <div className="setup-card">
+          <h1>Course Schedule Visualizer</h1>
+          <p>Select a shared folder to store schedule data. This folder should be accessible to all users who need to view or edit schedules.</p>
+          <button className="add-section-btn" onClick={handleSelectFolder}>
+            Select Folder
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="app">
       <header className="app-header">
@@ -131,6 +260,13 @@ export default function App() {
           <button className="settings-btn" onClick={() => setShowSettings(true)}>Settings</button>
         </div>
       </header>
+      {!settings.csvExportPath && !csvBannerDismissed && (
+        <div className="csv-prompt-banner">
+          <span>CSV export folder not configured. Set it in Settings to auto-export readable schedule files.</span>
+          <button className="csv-banner-link" onClick={() => setShowSettings(true)}>Set up</button>
+          <button className="csv-banner-dismiss" onClick={() => setCsvBannerDismissed(true)}>Dismiss</button>
+        </div>
+      )}
       <main className="app-main">
         <div className="left-panel" style={{ width: leftWidth }}>
           {showForm ? (
@@ -150,6 +286,7 @@ export default function App() {
           )}
           <SectionList
             sections={sections}
+            instructors={instructors}
             onEdit={handleEdit}
             onDelete={handleDelete}
             selectedIds={selectedSectionIds}
@@ -174,6 +311,7 @@ export default function App() {
         <div className="right-panel">
           <ScheduleView
             sections={sections}
+            instructors={instructors}
             selectedSectionIds={selectedSectionIds}
             onSelectSection={id => setSelectedSectionIds(prev =>
               prev.size === 1 && prev.has(id) ? new Set() : new Set([id])
@@ -186,6 +324,7 @@ export default function App() {
           settings={settings}
           onSave={(s) => { setSettings(s); saveSettings(s); setShowSettings(false); }}
           onClose={() => setShowSettings(false)}
+          onChangeFolder={handleChangeFolder}
         />
       )}
       {showInstructors && (
@@ -193,6 +332,12 @@ export default function App() {
           instructors={instructors}
           onSave={(list) => { setInstructors(list); saveInstructors(list); setShowInstructors(false); }}
           onClose={() => setShowInstructors(false)}
+        />
+      )}
+      {showConflict && (
+        <ConflictDialog
+          onOverwrite={handleConflictOverwrite}
+          onReload={handleConflictReload}
         />
       )}
     </div>
