@@ -22,6 +22,7 @@ interface Props {
   courses: Course[];
   tags: Tag[];
   defaultSectionColor?: string;
+  existingSections: Section[];
 }
 
 const emptyForm = {
@@ -34,7 +35,7 @@ const emptyForm = {
   tagIds: [] as string[],
 };
 
-export default function SectionForm({ onSubmit, editingSection, onCancelEdit, usedColors, allowedStartTimes, allowedEndTimes, instructors, courses, tags, defaultSectionColor }: Props) {
+export default function SectionForm({ onSubmit, editingSection, onCancelEdit, usedColors, allowedStartTimes, allowedEndTimes, instructors, courses, tags, defaultSectionColor, existingSections }: Props) {
   const [form, setForm] = useState(emptyForm);
 
   useEffect(() => {
@@ -83,9 +84,14 @@ export default function SectionForm({ onSubmit, editingSection, onCancelEdit, us
     setForm(f => ({ ...f, meetings: [...f.meetings, { day, startTime: defaultStart, endTime: defaultEnd }] }));
   }
 
+  const sectionNumberTrimmed = form.sectionNumber.trim();
+  const isDuplicate = sectionNumberTrimmed !== '' && form.courseName !== '' && existingSections.some(
+    s => s.courseName === form.courseName && s.sectionNumber === sectionNumberTrimmed && s.id !== editingSection?.id
+  );
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.courseName || form.meetings.length === 0) return;
+    if (!form.courseName || form.meetings.length === 0 || !sectionNumberTrimmed || isDuplicate) return;
 
     const section: Section = {
       id: editingSection?.id ?? crypto.randomUUID(),
@@ -134,13 +140,15 @@ export default function SectionForm({ onSubmit, editingSection, onCancelEdit, us
       </label>
 
       <label>
-        Section Number
+        Section Number *
         <input
           type="text"
           value={form.sectionNumber}
           onChange={e => setForm(f => ({ ...f, sectionNumber: e.target.value }))}
           placeholder="001"
+          required
         />
+        {isDuplicate && <span className="form-error">Section number already exists for this course</span>}
       </label>
 
       <label>

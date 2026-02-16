@@ -177,6 +177,12 @@ body {
   cursor: pointer;
 }
 
+.form-error {
+  color: #e06c75;
+  font-size: 0.8rem;
+  font-weight: 400;
+}
+
 .form-field {
   margin-bottom: 12px;
 }

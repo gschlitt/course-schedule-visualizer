@@ -335,6 +335,7 @@ export default function App() {
               courses={courses}
               tags={tags}
               defaultSectionColor={settings.defaultSectionColor}
+              existingSections={sections}
             />
           ) : (
             <button className="add-section-btn" onClick={() => setShowForm(true)}>
