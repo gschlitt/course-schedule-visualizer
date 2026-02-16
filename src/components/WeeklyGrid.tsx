@@ -189,7 +189,7 @@ export default function WeeklyGrid({ sections, instructors, selectedSectionIds, 
         {group.blocks.map((b, i) => (
           <div key={b.section.id} className="merged-entry" style={i > 0 ? { borderTop: '1px solid rgba(255,255,255,0.3)' } : undefined}>
             <span className="block-name block-name-clickable" style={{ color: '#fff', backgroundColor: b.section.color, borderRadius: 2, padding: '0 2px' }} onClick={() => onSelectSection(b.section.id)}>
-              {b.section.courseName}{getAbbr(b.section.instructor) ? ` (${getAbbr(b.section.instructor)})` : ''}
+              {b.section.courseName} {b.section.sectionNumber}{getAbbr(b.section.instructor) ? ` (${getAbbr(b.section.instructor)})` : ''}
             </span>
             {b.section.location && <span className="block-loc">{b.section.location}</span>}
           </div>
@@ -224,7 +224,7 @@ export default function WeeklyGrid({ sections, instructors, selectedSectionIds, 
           }}
           title={`${block.section.courseName}${getAbbr(block.section.instructor) ? ` (${getAbbr(block.section.instructor)})` : ''} ${block.section.sectionNumber}\n${block.startTime}–${block.endTime}\n${block.section.instructor}\n${block.section.location}`}
         >
-          <span className="block-name block-name-clickable" onClick={() => onSelectSection(block.section.id)}>{block.section.courseName}{getAbbr(block.section.instructor) ? ` (${getAbbr(block.section.instructor)})` : ''}</span>
+          <span className="block-name block-name-clickable" onClick={() => onSelectSection(block.section.id)}>{block.section.courseName} {block.section.sectionNumber}{getAbbr(block.section.instructor) ? ` (${getAbbr(block.section.instructor)})` : ''}</span>
           {block.section.location && <span className="block-loc">{block.section.location}</span>}
         </div>
       );
@@ -301,7 +301,7 @@ export default function WeeklyGrid({ sections, instructors, selectedSectionIds, 
                       }}
                       title={`${block.section.courseName}${getAbbr(block.section.instructor) ? ` (${getAbbr(block.section.instructor)})` : ''} ${block.section.sectionNumber}\n${block.startTime}–${block.endTime}\n${block.section.instructor}\n${block.section.location}`}
                     >
-                      <span className="block-name block-name-clickable" onClick={() => onSelectSection(block.section.id)}>{block.section.courseName}{getAbbr(block.section.instructor) ? ` (${getAbbr(block.section.instructor)})` : ''}</span>
+                      <span className="block-name block-name-clickable" onClick={() => onSelectSection(block.section.id)}>{block.section.courseName} {block.section.sectionNumber}{getAbbr(block.section.instructor) ? ` (${getAbbr(block.section.instructor)})` : ''}</span>
                       {block.section.location && <span className="block-loc">{block.section.location}</span>}
                     </div>
                   );
