@@ -11,7 +11,7 @@ interface Props {
   onChangeInstructor: (sectionId: string, instructorName: string) => void;
   allowedStartTimes: string[];
   allowedEndTimes: string[];
-  filterTagNames?: string[];
+  filterSummary?: string[];
   onClearFilter?: () => void;
 }
 
@@ -37,7 +37,7 @@ function copyStyles(sourceDoc: Document, targetDoc: Document) {
   }
 }
 
-export default function ScheduleView({ sections, instructors, selectedSectionIds, onSelectSection, onChangeInstructor, allowedStartTimes, allowedEndTimes, filterTagNames, onClearFilter }: Props) {
+export default function ScheduleView({ sections, instructors, selectedSectionIds, onSelectSection, onChangeInstructor, allowedStartTimes, allowedEndTimes, filterSummary, onClearFilter }: Props) {
   const [detached, setDetached] = useState(false);
   const externalWindow = useRef<Window | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -87,9 +87,9 @@ export default function ScheduleView({ sections, instructors, selectedSectionIds
 
   const scheduleContent = (
     <div className="schedule-view">
-      {filterTagNames && filterTagNames.length > 0 && (
+      {filterSummary && filterSummary.length > 0 && (
         <div className="filter-banner">
-          <span>Filtered by: {filterTagNames.join(', ')}</span>
+          <span>Filtered by: {filterSummary.join(' | ')}</span>
           <button className="filter-banner-clear" onClick={onClearFilter}>Clear filter</button>
         </div>
       )}

@@ -1181,6 +1181,21 @@ body {
   cursor: pointer;
 }
 
+.filter-group-header {
+  padding: 6px 12px 2px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.filter-group-divider {
+  height: 0;
+  margin: 4px 8px;
+  border-top: 1px solid #eee;
+}
+
 .filter-dropdown-clear {
   display: block;
   width: calc(100% - 16px);

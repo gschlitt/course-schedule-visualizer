@@ -48,7 +48,14 @@ export default function App() {
   const [showConflict, setShowConflict] = useState(false);
   const [csvBannerDismissed, setCsvBannerDismissed] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [filterTagIds, setFilterTagIds] = useState<Set<string>>(new Set());
+  const [filters, setFilters] = useState({
+    tagIds: new Set<string>(),
+    instructors: new Set<string>(),
+    sectionTypes: new Set<string>(),
+    campuses: new Set<string>(),
+    resources: new Set<string>(),
+    levels: new Set<string>(),
+  });
   const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
   const filterDropdownRef = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
@@ -445,27 +452,84 @@ export default function App() {
     setSections(sects);
   }
 
-  const filteredSections = useMemo(() => {
-    if (filterTagIds.size === 0) return sections;
-    return sections.filter(s =>
-      s.tagIds && [...filterTagIds].every(tagId => s.tagIds!.includes(tagId))
-    );
-  }, [sections, filterTagIds]);
+  const totalActiveFilters = useMemo(() =>
+    filters.tagIds.size + filters.instructors.size + filters.sectionTypes.size +
+    filters.campuses.size + filters.resources.size + filters.levels.size,
+    [filters]
+  );
 
-  function toggleFilterTag(tagId: string) {
-    setFilterTagIds(prev => {
-      const next = new Set(prev);
-      if (next.has(tagId)) next.delete(tagId);
-      else next.add(tagId);
-      return next;
+  const filteredSections = useMemo(() => {
+    if (totalActiveFilters === 0) return sections;
+    return sections.filter(s => {
+      // AND logic across all dimensions — section must match every selected value
+      if (filters.tagIds.size > 0 && (!s.tagIds || ![...filters.tagIds].every(id => s.tagIds!.includes(id)))) return false;
+      for (const name of filters.instructors) { if (s.instructor !== name) return false; }
+      for (const v of filters.sectionTypes) { if (s.sectionType !== v) return false; }
+      for (const v of filters.campuses) { if (s.campus !== v) return false; }
+      for (const v of filters.resources) { if (s.resource !== v) return false; }
+      for (const v of filters.levels) { if (s.level !== v) return false; }
+      return true;
+    });
+  }, [sections, filters, totalActiveFilters]);
+
+  function toggleFilter(dimension: keyof typeof filters, value: string) {
+    setFilters(prev => {
+      const next = new Set(prev[dimension]);
+      if (next.has(value)) next.delete(value);
+      else next.add(value);
+      return { ...prev, [dimension]: next };
     });
   }
 
-  // Filter tag names for display in banner
-  const filterTagNames = useMemo(() =>
-    [...filterTagIds].map(id => tags.find(t => t.id === id)?.name).filter(Boolean) as string[],
-    [filterTagIds, tags]
-  );
+  function clearAllFilters() {
+    setFilters({
+      tagIds: new Set(),
+      instructors: new Set(),
+      sectionTypes: new Set(),
+      campuses: new Set(),
+      resources: new Set(),
+      levels: new Set(),
+    });
+    setFilterDropdownOpen(false);
+  }
+
+  // Build filter summary strings for banner display
+  const filterSummary = useMemo(() => {
+    const parts: string[] = [];
+    if (filters.tagIds.size > 0) {
+      const names = [...filters.tagIds].map(id => tags.find(t => t.id === id)?.name).filter(Boolean);
+      if (names.length) parts.push(`Tags: ${names.join(' + ')}`);
+    }
+    if (filters.instructors.size > 0) parts.push(`Instructor: ${[...filters.instructors].join(', ')}`);
+    if (filters.sectionTypes.size > 0) parts.push(`Section Type: ${[...filters.sectionTypes].join(', ')}`);
+    if (filters.campuses.size > 0) parts.push(`Campus: ${[...filters.campuses].join(', ')}`);
+    if (filters.resources.size > 0) parts.push(`Resource: ${[...filters.resources].join(', ')}`);
+    if (filters.levels.size > 0) parts.push(`Level: ${[...filters.levels].join(', ')}`);
+    return parts;
+  }, [filters, tags]);
+
+  // Collect available values for each filter dimension from current sections
+  const filterOptions = useMemo(() => {
+    const instrSet = new Set<string>();
+    const typeSet = new Set<string>();
+    const campusSet = new Set<string>();
+    const resourceSet = new Set<string>();
+    const levelSet = new Set<string>();
+    for (const s of sections) {
+      if (s.instructor) instrSet.add(s.instructor);
+      if (s.sectionType) typeSet.add(s.sectionType);
+      if (s.campus) campusSet.add(s.campus);
+      if (s.resource) resourceSet.add(s.resource);
+      if (s.level) levelSet.add(s.level);
+    }
+    return {
+      instructors: [...instrSet].sort(),
+      sectionTypes: [...typeSet].sort(),
+      campuses: [...campusSet].sort(),
+      resources: [...resourceSet].sort(),
+      levels: [...levelSet].sort(),
+    };
+  }, [sections]);
 
   if (screen === 'loading') {
     return (
@@ -517,28 +581,89 @@ export default function App() {
             ))}
           </select>
           <div className="header-spacer" />
-          {tags.length > 0 && (
+          {(tags.length > 0 || filterOptions.instructors.length > 0 || filterOptions.sectionTypes.length > 0 || filterOptions.campuses.length > 0 || filterOptions.resources.length > 0 || filterOptions.levels.length > 0) && (
             <div className="filter-dropdown-wrapper" ref={filterDropdownRef}>
               <button
-                className={`settings-btn${filterTagIds.size > 0 ? ' filter-btn-active' : ''}`}
+                className={`settings-btn${totalActiveFilters > 0 ? ' filter-btn-active' : ''}`}
                 onClick={() => setFilterDropdownOpen(o => !o)}
               >
-                Filter{filterTagIds.size > 0 ? ` (${filterTagIds.size})` : ''}
+                Filter{totalActiveFilters > 0 ? ` (${totalActiveFilters})` : ''}
               </button>
               {filterDropdownOpen && (
                 <div className="filter-dropdown">
-                  {tags.map(tag => (
-                    <label key={tag.id} className="filter-dropdown-item">
-                      <input
-                        type="checkbox"
-                        checked={filterTagIds.has(tag.id)}
-                        onChange={() => toggleFilterTag(tag.id)}
-                      />
-                      <span>{tag.name}</span>
-                    </label>
-                  ))}
-                  {filterTagIds.size > 0 && (
-                    <button className="filter-dropdown-clear" onClick={() => { setFilterTagIds(new Set()); setFilterDropdownOpen(false); }}>Clear all</button>
+                  {tags.length > 0 && (
+                    <>
+                      <div className="filter-group-header">Tags</div>
+                      {tags.map(tag => (
+                        <label key={tag.id} className="filter-dropdown-item">
+                          <input type="checkbox" checked={filters.tagIds.has(tag.id)} onChange={() => toggleFilter('tagIds', tag.id)} />
+                          <span>{tag.name}</span>
+                        </label>
+                      ))}
+                    </>
+                  )}
+                  {filterOptions.instructors.length > 0 && (
+                    <>
+                      {tags.length > 0 && <div className="filter-group-divider" />}
+                      <div className="filter-group-header">Instructor</div>
+                      {filterOptions.instructors.map(name => (
+                        <label key={name} className="filter-dropdown-item">
+                          <input type="checkbox" checked={filters.instructors.has(name)} onChange={() => toggleFilter('instructors', name)} />
+                          <span>{name}</span>
+                        </label>
+                      ))}
+                    </>
+                  )}
+                  {filterOptions.sectionTypes.length > 0 && (
+                    <>
+                      <div className="filter-group-divider" />
+                      <div className="filter-group-header">Section Type</div>
+                      {filterOptions.sectionTypes.map(v => (
+                        <label key={v} className="filter-dropdown-item">
+                          <input type="checkbox" checked={filters.sectionTypes.has(v)} onChange={() => toggleFilter('sectionTypes', v)} />
+                          <span>{v}</span>
+                        </label>
+                      ))}
+                    </>
+                  )}
+                  {filterOptions.campuses.length > 0 && (
+                    <>
+                      <div className="filter-group-divider" />
+                      <div className="filter-group-header">Campus</div>
+                      {filterOptions.campuses.map(v => (
+                        <label key={v} className="filter-dropdown-item">
+                          <input type="checkbox" checked={filters.campuses.has(v)} onChange={() => toggleFilter('campuses', v)} />
+                          <span>{v}</span>
+                        </label>
+                      ))}
+                    </>
+                  )}
+                  {filterOptions.resources.length > 0 && (
+                    <>
+                      <div className="filter-group-divider" />
+                      <div className="filter-group-header">Resource</div>
+                      {filterOptions.resources.map(v => (
+                        <label key={v} className="filter-dropdown-item">
+                          <input type="checkbox" checked={filters.resources.has(v)} onChange={() => toggleFilter('resources', v)} />
+                          <span>{v}</span>
+                        </label>
+                      ))}
+                    </>
+                  )}
+                  {filterOptions.levels.length > 0 && (
+                    <>
+                      <div className="filter-group-divider" />
+                      <div className="filter-group-header">Level</div>
+                      {filterOptions.levels.map(v => (
+                        <label key={v} className="filter-dropdown-item">
+                          <input type="checkbox" checked={filters.levels.has(v)} onChange={() => toggleFilter('levels', v)} />
+                          <span>{v}</span>
+                        </label>
+                      ))}
+                    </>
+                  )}
+                  {totalActiveFilters > 0 && (
+                    <button className="filter-dropdown-clear" onClick={clearAllFilters}>Clear all</button>
                   )}
                 </div>
               )}
@@ -627,8 +752,8 @@ export default function App() {
             onChangeInstructor={(sectionId, instructorName) => {
               setSections(prev => prev.map(s => s.id === sectionId ? { ...s, instructor: instructorName } : s));
             }}
-            filterTagNames={filterTagNames}
-            onClearFilter={() => setFilterTagIds(new Set())}
+            filterSummary={filterSummary}
+            onClearFilter={clearAllFilters}
           />
         </div>
       </main>
