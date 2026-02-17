@@ -104,7 +104,7 @@ export default function SectionForm({ onSubmit, editingSection, onCancelEdit, us
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.courseName || form.meetings.length === 0 || !sectionNumberTrimmed || isDuplicate) return;
+    if (!form.courseName || !sectionNumberTrimmed || isDuplicate) return;
 
     const section: Section = {
       id: editingSection?.id ?? crypto.randomUUID(),
@@ -140,10 +140,22 @@ export default function SectionForm({ onSubmit, editingSection, onCancelEdit, us
       return a.startTime.localeCompare(b.startTime);
     });
 
+  const actionButtons = (
+    <div className="form-actions">
+      <button type="submit">{editingSection ? 'Update' : 'Add Section'}</button>
+      <button type="button" className="btn-secondary" onClick={handleCancel}>
+        Cancel
+      </button>
+    </div>
+  );
+
   return (
     <form className="section-form" onSubmit={handleSubmit}>
       <h3>{editingSection ? 'Edit Section' : 'Add Section'}</h3>
 
+      {actionButtons}
+
+      {/* 1. Course Name */}
       <label>
         Course Name *
         <select
@@ -158,6 +170,7 @@ export default function SectionForm({ onSubmit, editingSection, onCancelEdit, us
         </select>
       </label>
 
+      {/* 2. Section Code */}
       <label>
         Section Code (e.g. AB1) *
         <input
@@ -170,21 +183,9 @@ export default function SectionForm({ onSubmit, editingSection, onCancelEdit, us
         {isDuplicate && <span className="form-error">Section number already exists for this course</span>}
       </label>
 
-      <label>
-        Instructor
-        <select
-          value={form.instructor}
-          onChange={e => setForm(f => ({ ...f, instructor: e.target.value }))}
-        >
-          <option value="">— None —</option>
-          {instructors.map(inst => (
-            <option key={inst.id} value={inst.name}>{inst.name}</option>
-          ))}
-        </select>
-      </label>
-
+      {/* 3. Days and Times */}
       <div className="form-field">
-        <span>Days *</span>
+        <span>Days</span>
         <div className="day-toggles">
           {ALL_DAYS.map(day => (
             <button
@@ -242,66 +243,21 @@ export default function SectionForm({ onSubmit, editingSection, onCancelEdit, us
         </div>
       )}
 
+      {/* 4. Instructor */}
       <label>
-        Location
-        <input
-          type="text"
-          value={form.location}
-          onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
-          placeholder="Room 204"
-        />
+        Instructor
+        <select
+          value={form.instructor}
+          onChange={e => setForm(f => ({ ...f, instructor: e.target.value }))}
+        >
+          <option value="">— None —</option>
+          {instructors.map(inst => (
+            <option key={inst.id} value={inst.name}>{inst.name}</option>
+          ))}
+        </select>
       </label>
 
-      {sectionAttributes.sectionTypes.length > 0 && (
-        <label>
-          Section Type
-          <select value={form.sectionType} onChange={e => setForm(f => ({ ...f, sectionType: e.target.value }))}>
-            <option value="">— None —</option>
-            {sectionAttributes.sectionTypes.map(o => <option key={o.id} value={o.name}>{o.name}</option>)}
-          </select>
-        </label>
-      )}
-
-      {sectionAttributes.meetingTypes.length > 0 && (
-        <label>
-          Meeting Type
-          <select value={form.meetingType} onChange={e => setForm(f => ({ ...f, meetingType: e.target.value }))}>
-            <option value="">— None —</option>
-            {sectionAttributes.meetingTypes.map(o => <option key={o.id} value={o.name}>{o.name}</option>)}
-          </select>
-        </label>
-      )}
-
-      {sectionAttributes.campuses.length > 0 && (
-        <label>
-          Campus
-          <select value={form.campus} onChange={e => setForm(f => ({ ...f, campus: e.target.value }))}>
-            <option value="">— None —</option>
-            {sectionAttributes.campuses.map(o => <option key={o.id} value={o.name}>{o.name}</option>)}
-          </select>
-        </label>
-      )}
-
-      {sectionAttributes.resources.length > 0 && (
-        <label>
-          Resource
-          <select value={form.resource} onChange={e => setForm(f => ({ ...f, resource: e.target.value }))}>
-            <option value="">— None —</option>
-            {sectionAttributes.resources.map(o => <option key={o.id} value={o.name}>{o.name}</option>)}
-          </select>
-        </label>
-      )}
-
-      {sectionAttributes.levels.length > 0 && (
-        <label>
-          Level
-          <select value={form.level} onChange={e => setForm(f => ({ ...f, level: e.target.value }))}>
-            <option value="">— None —</option>
-            {sectionAttributes.levels.map(o => <option key={o.id} value={o.name}>{o.name}</option>)}
-          </select>
-        </label>
-      )}
-
+      {/* 5. Workload */}
       <div className="form-field">
         <span>Workload</span>
         <div className="workload-row">
@@ -340,6 +296,7 @@ export default function SectionForm({ onSubmit, editingSection, onCancelEdit, us
         </div>
       </div>
 
+      {/* 6. Tags */}
       {tags.length > 0 && (
         <div className="form-field">
           <span>Tags</span>
@@ -379,6 +336,62 @@ export default function SectionForm({ onSubmit, editingSection, onCancelEdit, us
         </div>
       )}
 
+      {/* 7. Section Type */}
+      {sectionAttributes.sectionTypes.length > 0 && (
+        <label>
+          Section Type
+          <select value={form.sectionType} onChange={e => setForm(f => ({ ...f, sectionType: e.target.value }))}>
+            <option value="">— None —</option>
+            {sectionAttributes.sectionTypes.map(o => <option key={o.id} value={o.name}>{o.name}</option>)}
+          </select>
+        </label>
+      )}
+
+      {/* 8. Campus */}
+      {sectionAttributes.campuses.length > 0 && (
+        <label>
+          Campus
+          <select value={form.campus} onChange={e => setForm(f => ({ ...f, campus: e.target.value }))}>
+            <option value="">— None —</option>
+            {sectionAttributes.campuses.map(o => <option key={o.id} value={o.name}>{o.name}</option>)}
+          </select>
+        </label>
+      )}
+
+      {/* 9. Resource */}
+      {sectionAttributes.resources.length > 0 && (
+        <label>
+          Resource
+          <select value={form.resource} onChange={e => setForm(f => ({ ...f, resource: e.target.value }))}>
+            <option value="">— None —</option>
+            {sectionAttributes.resources.map(o => <option key={o.id} value={o.name}>{o.name}</option>)}
+          </select>
+        </label>
+      )}
+
+      {/* 10. Meeting Type */}
+      {sectionAttributes.meetingTypes.length > 0 && (
+        <label>
+          Meeting Type
+          <select value={form.meetingType} onChange={e => setForm(f => ({ ...f, meetingType: e.target.value }))}>
+            <option value="">— None —</option>
+            {sectionAttributes.meetingTypes.map(o => <option key={o.id} value={o.name}>{o.name}</option>)}
+          </select>
+        </label>
+      )}
+
+      {/* 11. Level */}
+      {sectionAttributes.levels.length > 0 && (
+        <label>
+          Level
+          <select value={form.level} onChange={e => setForm(f => ({ ...f, level: e.target.value }))}>
+            <option value="">— None —</option>
+            {sectionAttributes.levels.map(o => <option key={o.id} value={o.name}>{o.name}</option>)}
+          </select>
+        </label>
+      )}
+
+      {/* 12. Color */}
       <label>
         Color
         <input
@@ -388,12 +401,7 @@ export default function SectionForm({ onSubmit, editingSection, onCancelEdit, us
         />
       </label>
 
-      <div className="form-actions">
-        <button type="submit">{editingSection ? 'Update' : 'Add Section'}</button>
-        <button type="button" className="btn-secondary" onClick={handleCancel}>
-          Cancel
-        </button>
-      </div>
+      {actionButtons}
     </form>
   );
 }

@@ -28,6 +28,12 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex: 1;
+  margin-left: 24px;
+}
+
+.header-spacer {
+  flex: 1;
 }
 
 .header-select {
@@ -90,7 +96,7 @@ body {
   flex-direction: column;
   gap: 20px;
   padding: 20px;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .divider {
@@ -135,6 +141,9 @@ body {
   border-radius: 8px;
   padding: 20px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .section-form h3 {
@@ -299,11 +308,35 @@ body {
   border-radius: 8px;
   padding: 20px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
-.section-list h3 {
+.section-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   margin-bottom: 12px;
+}
+
+.section-list-header h3 {
   font-size: 1.1rem;
+}
+
+.section-list-toggle-btns {
+  display: flex;
+  gap: 2px;
+}
+
+.section-collapse-btn {
+  font-size: 0.7rem !important;
+  padding: 2px 4px !important;
+  color: #bbb !important;
+}
+
+.section-card-collapsed {
+  padding: 6px 12px;
 }
 
 .section-card {
@@ -370,6 +403,15 @@ body {
 .btn-icon-danger:hover {
   color: #e06c75;
   background: rgba(224,108,117,0.1);
+}
+
+.btn-icon-delete {
+  color: #e06c75;
+}
+
+.btn-icon-delete:hover {
+  color: #c0392b;
+  background: rgba(224,108,117,0.15);
 }
 
 .btn-sm {
@@ -590,6 +632,9 @@ body {
   border-radius: 8px;
   padding: 16px 20px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  flex-shrink: 0;
+  max-height: 40%;
+  overflow-y: auto;
 }
 
 .instructors-summary h3 {
@@ -631,6 +676,19 @@ body {
   background: #e8f0fe;
   border-radius: 4px;
   padding: 6px 8px;
+}
+
+.instructor-summary-info {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.instructor-summary-workload {
+  display: flex;
+  gap: 12px;
+  font-size: 0.78rem;
+  color: #888;
 }
 
 .instructor-summary-sections {

@@ -516,6 +516,7 @@ export default function App() {
               <option key={s} value={s}>{s}</option>
             ))}
           </select>
+          <div className="header-spacer" />
           {tags.length > 0 && (
             <div className="filter-dropdown-wrapper" ref={filterDropdownRef}>
               <button
@@ -600,6 +601,8 @@ export default function App() {
           <InstructorsSummary
             instructors={instructors}
             sections={sections}
+            selectedYear={selectedYear}
+            selectedSemester={selectedSemester}
             selectedIds={selectedSectionIds}
             onSelectInstructor={(name) => {
               const ids = sections.filter(s => s.instructor === name).map(s => s.id);
