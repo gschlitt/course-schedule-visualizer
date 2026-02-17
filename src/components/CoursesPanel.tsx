@@ -3,7 +3,7 @@ import { Course } from '../types';
 
 interface Props {
   courses: Course[];
-  onSave: (courses: Course[]) => void;
+  onSave: (courses: Course[], renames: { oldAbbr: string; newAbbr: string }[]) => void;
   onClose: () => void;
 }
 
@@ -16,6 +16,7 @@ export default function CoursesPanel({ courses, onSave, onClose }: Props) {
   const [editAbbr, setEditAbbr] = useState('');
   const [error, setError] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [renames, setRenames] = useState<{ oldAbbr: string; newAbbr: string }[]>([]);
 
   function isDuplicate(title: string, abbreviation: string, excludeId?: string): string | null {
     const other = list.filter(c => c.id !== excludeId);
@@ -41,6 +42,15 @@ export default function CoursesPanel({ courses, onSave, onClose }: Props) {
   }
 
   function handleDelete(id: string) {
+    const course = list.find(c => c.id === id);
+    if (course?.history) {
+      const hasEntries = Object.values(course.history).some(entries => entries.length > 0);
+      if (hasEntries) {
+        setError(`Cannot delete "${course.abbreviation}" — has sections in past or current semesters.`);
+        return;
+      }
+    }
+    setError('');
     setList(list.filter(c => c.id !== id));
     if (selectedId === id) setSelectedId(null);
   }
@@ -58,6 +68,10 @@ export default function CoursesPanel({ courses, onSave, onClose }: Props) {
     if (!title || !abbreviation || !editingId) return;
     const dup = isDuplicate(title, abbreviation, editingId);
     if (dup) { setError(dup); return; }
+    const old = list.find(c => c.id === editingId);
+    if (old && old.abbreviation !== abbreviation) {
+      setRenames(prev => [...prev, { oldAbbr: old.abbreviation, newAbbr: abbreviation }]);
+    }
     setList(list.map(c => c.id === editingId ? { ...c, title, abbreviation } : c));
     setEditingId(null);
     setEditTitle('');
@@ -73,7 +87,7 @@ export default function CoursesPanel({ courses, onSave, onClose }: Props) {
   }
 
   function handleSave() {
-    onSave(list);
+    onSave(list, renames);
   }
 
   function handleRowClick(id: string) {

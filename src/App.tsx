@@ -286,6 +286,54 @@ export default function App() {
     }
   }
 
+  async function renameSectionsAcrossSemesters(
+    renameFn: (section: Section) => Section
+  ) {
+    // Update current semester's sections in state
+    setSections(prev => prev.map(renameFn));
+    // Update all other semesters on disk
+    for (const year of years) {
+      for (const sem of SEMESTERS) {
+        if (year === selectedYear && sem === selectedSemester) continue;
+        const sects = await loadSections(year, sem);
+        const updated = sects.map(renameFn);
+        if (JSON.stringify(sects) !== JSON.stringify(updated)) {
+          await forceSaveSections(updated, year, sem);
+        }
+      }
+    }
+  }
+
+  async function handleInstructorSave(list: Instructor[], instrRenames: { oldName: string; newName: string }[]) {
+    setInstructors(list);
+    saveInstructors(list);
+    if (instrRenames.length > 0) {
+      await renameSectionsAcrossSemesters(section => {
+        let instructor = section.instructor;
+        for (const r of instrRenames) {
+          if (instructor === r.oldName) instructor = r.newName;
+        }
+        return instructor !== section.instructor ? { ...section, instructor } : section;
+      });
+    }
+    setShowInstructors(false);
+  }
+
+  async function handleCourseSave(list: Course[], courseRenames: { oldAbbr: string; newAbbr: string }[]) {
+    setCourses(list);
+    saveCourses(list);
+    if (courseRenames.length > 0) {
+      await renameSectionsAcrossSemesters(section => {
+        let courseName = section.courseName;
+        for (const r of courseRenames) {
+          if (courseName === r.oldAbbr) courseName = r.newAbbr;
+        }
+        return courseName !== section.courseName ? { ...section, courseName } : section;
+      });
+    }
+    setShowCourses(false);
+  }
+
   async function handleConflictOverwrite() {
     setShowConflict(false);
     await forceSaveSections(sections, selectedYear, selectedSemester);
@@ -431,7 +479,7 @@ export default function App() {
       {showInstructors && (
         <InstructorsPanel
           instructors={instructors}
-          onSave={(list) => { setInstructors(list); saveInstructors(list); setShowInstructors(false); }}
+          onSave={handleInstructorSave}
           onClose={() => setShowInstructors(false)}
         />
       )}
@@ -445,7 +493,7 @@ export default function App() {
       {showCourses && (
         <CoursesPanel
           courses={courses}
-          onSave={(list) => { setCourses(list); saveCourses(list); setShowCourses(false); }}
+          onSave={handleCourseSave}
           onClose={() => setShowCourses(false)}
         />
       )}

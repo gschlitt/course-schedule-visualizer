@@ -3,7 +3,7 @@ import { Instructor } from '../types';
 
 interface Props {
   instructors: Instructor[];
-  onSave: (instructors: Instructor[]) => void;
+  onSave: (instructors: Instructor[], renames: { oldName: string; newName: string }[]) => void;
   onClose: () => void;
 }
 
@@ -15,6 +15,8 @@ export default function InstructorsPanel({ instructors, onSave, onClose }: Props
   const [editName, setEditName] = useState('');
   const [editAbbr, setEditAbbr] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [renames, setRenames] = useState<{ oldName: string; newName: string }[]>([]);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   function handleAdd() {
     const name = newName.trim();
@@ -26,6 +28,15 @@ export default function InstructorsPanel({ instructors, onSave, onClose }: Props
   }
 
   function handleDelete(id: string) {
+    const inst = list.find(i => i.id === id);
+    if (inst?.history) {
+      const hasEntries = Object.values(inst.history).some(entries => entries.length > 0);
+      if (hasEntries) {
+        setDeleteError(`Cannot delete "${inst.name}" — assigned to sections in past or current semesters.`);
+        return;
+      }
+    }
+    setDeleteError(null);
     setList(list.filter(i => i.id !== id));
     if (selectedId === id) setSelectedId(null);
   }
@@ -40,6 +51,10 @@ export default function InstructorsPanel({ instructors, onSave, onClose }: Props
     const name = editName.trim();
     const abbreviation = editAbbr.trim();
     if (!name || !abbreviation || !editingId) return;
+    const old = list.find(i => i.id === editingId);
+    if (old && old.name !== name) {
+      setRenames(prev => [...prev, { oldName: old.name, newName: name }]);
+    }
     setList(list.map(i => i.id === editingId ? { ...i, name, abbreviation } : i));
     setEditingId(null);
     setEditName('');
@@ -53,7 +68,7 @@ export default function InstructorsPanel({ instructors, onSave, onClose }: Props
   }
 
   function handleSave() {
-    onSave(list);
+    onSave(list, renames);
   }
 
   function handleRowClick(id: string) {
@@ -93,6 +108,7 @@ export default function InstructorsPanel({ instructors, onSave, onClose }: Props
           <button className="settings-close" onClick={onClose}>&times;</button>
         </div>
         <div className="settings-body">
+          {deleteError && <p style={{ color: '#e74c3c', margin: '0 0 8px' }}>{deleteError}</p>}
           <div className="time-input-row" style={{ marginBottom: 16 }}>
             <input
               type="text"
