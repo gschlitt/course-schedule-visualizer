@@ -1,9 +1,9 @@
+import { useState, useEffect, useCallback } from 'react';
 import { Section, Day, Instructor } from '../types';
 
 const DAYS: Day[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-const START_HOUR = 7;
+const DEFAULT_START_HOUR = 7;
 const END_HOUR = 22;
-const HOURS = Array.from({ length: END_HOUR - START_HOUR }, (_, i) => START_HOUR + i);
 
 function timeToMinutes(time: string): number {
   const [h, m] = time.split(':').map(Number);
@@ -27,8 +27,16 @@ interface Props {
   instructors: Instructor[];
   selectedSectionIds: Set<string>;
   onSelectSection: (id: string) => void;
+  onChangeInstructor: (sectionId: string, instructorName: string) => void;
   allowedStartTimes: string[];
   allowedEndTimes: string[];
+}
+
+interface ContextMenuState {
+  x: number;
+  y: number;
+  sectionId: string;
+  currentInstructor: string;
 }
 
 interface OverlapGroup {
@@ -90,7 +98,28 @@ interface ExpansionZone {
   overflowPx: number;
 }
 
-export default function WeeklyGrid({ sections, instructors, selectedSectionIds, onSelectSection, allowedStartTimes, allowedEndTimes }: Props) {
+export default function WeeklyGrid({ sections, instructors, selectedSectionIds, onSelectSection, onChangeInstructor, allowedStartTimes, allowedEndTimes }: Props) {
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+
+  const closeMenu = useCallback(() => setContextMenu(null), []);
+
+  useEffect(() => {
+    if (!contextMenu) return;
+    const handleClick = () => closeMenu();
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [contextMenu, closeMenu]);
+
+  function handleBlockContextMenu(e: React.MouseEvent, sectionId: string, currentInstructor: string) {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ x: e.clientX, y: e.clientY, sectionId, currentInstructor });
+  }
+
+  const START_HOUR = allowedStartTimes.length > 0
+    ? Math.floor(timeToMinutes(allowedStartTimes[0]) / 60)
+    : DEFAULT_START_HOUR;
+
   function getAbbr(instructorName: string): string {
     const inst = instructors.find(i => i.name === instructorName);
     return inst?.abbreviation || '';
@@ -187,7 +216,7 @@ export default function WeeklyGrid({ sections, instructors, selectedSectionIds, 
         }}
       >
         {group.blocks.map((b, i) => (
-          <div key={b.section.id} className="merged-entry" style={i > 0 ? { borderTop: '1px solid rgba(255,255,255,0.3)' } : undefined}>
+          <div key={b.section.id} className="merged-entry" style={i > 0 ? { borderTop: '1px solid rgba(255,255,255,0.3)' } : undefined} onContextMenu={e => handleBlockContextMenu(e, b.section.id, b.section.instructor)}>
             <span className="block-name block-name-clickable" style={{ color: '#fff', backgroundColor: b.section.color, borderRadius: 2, padding: '0 2px' }} onClick={() => onSelectSection(b.section.id)}>
               {b.section.courseName} {b.section.sectionNumber}{getAbbr(b.section.instructor) ? ` (${getAbbr(b.section.instructor)})` : ''}
             </span>
@@ -223,6 +252,7 @@ export default function WeeklyGrid({ sections, instructors, selectedSectionIds, 
             transition: 'opacity 0.15s',
           }}
           title={`${block.section.courseName}${getAbbr(block.section.instructor) ? ` (${getAbbr(block.section.instructor)})` : ''} ${block.section.sectionNumber}\n${block.startTime}–${block.endTime}\n${block.section.instructor}\n${block.section.location}`}
+          onContextMenu={e => handleBlockContextMenu(e, block.section.id, block.section.instructor)}
         >
           <span className="block-name block-name-clickable" onClick={() => onSelectSection(block.section.id)}>{block.section.courseName} {block.section.sectionNumber}{getAbbr(block.section.instructor) ? ` (${getAbbr(block.section.instructor)})` : ''}</span>
           {block.section.location && <span className="block-loc">{block.section.location}</span>}
@@ -300,6 +330,7 @@ export default function WeeklyGrid({ sections, instructors, selectedSectionIds, 
                         transition: 'opacity 0.15s',
                       }}
                       title={`${block.section.courseName}${getAbbr(block.section.instructor) ? ` (${getAbbr(block.section.instructor)})` : ''} ${block.section.sectionNumber}\n${block.startTime}–${block.endTime}\n${block.section.instructor}\n${block.section.location}`}
+                      onContextMenu={e => handleBlockContextMenu(e, block.section.id, block.section.instructor)}
                     >
                       <span className="block-name block-name-clickable" onClick={() => onSelectSection(block.section.id)}>{block.section.courseName} {block.section.sectionNumber}{getAbbr(block.section.instructor) ? ` (${getAbbr(block.section.instructor)})` : ''}</span>
                       {block.section.location && <span className="block-loc">{block.section.location}</span>}
@@ -317,6 +348,30 @@ export default function WeeklyGrid({ sections, instructors, selectedSectionIds, 
           );
         })}
       </div>
+      {contextMenu && (
+        <div
+          className="grid-context-menu"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+          onMouseDown={e => e.stopPropagation()}
+        >
+          <div className="grid-context-menu-header">Assign Instructor</div>
+          <div
+            className={`grid-context-menu-item${!contextMenu.currentInstructor ? ' grid-context-menu-item-active' : ''}`}
+            onClick={() => { onChangeInstructor(contextMenu.sectionId, ''); closeMenu(); }}
+          >
+            — None —
+          </div>
+          {instructors.map(inst => (
+            <div
+              key={inst.id}
+              className={`grid-context-menu-item${contextMenu.currentInstructor === inst.name ? ' grid-context-menu-item-active' : ''}`}
+              onClick={() => { onChangeInstructor(contextMenu.sectionId, inst.name); closeMenu(); }}
+            >
+              {inst.name}{inst.abbreviation ? ` (${inst.abbreviation})` : ''}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

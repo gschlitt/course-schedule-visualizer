@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Section, Day, Meeting, Instructor, Course, Tag } from '../types';
+import { Section, Day, Meeting, Instructor, Course, Tag, SectionAttributes } from '../types';
 import { getNextColor } from '../utils/colors';
 
 const ALL_DAYS: Day[] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
@@ -23,6 +23,7 @@ interface Props {
   tags: Tag[];
   defaultSectionColor?: string;
   existingSections: Section[];
+  sectionAttributes: SectionAttributes;
 }
 
 const emptyForm = {
@@ -33,9 +34,15 @@ const emptyForm = {
   location: '',
   color: '',
   tagIds: [] as string[],
+  sectionType: '',
+  meetingType: '',
+  campus: '',
+  resource: '',
+  level: '',
+  workload: '',
 };
 
-export default function SectionForm({ onSubmit, editingSection, onCancelEdit, usedColors, allowedStartTimes, allowedEndTimes, instructors, courses, tags, defaultSectionColor, existingSections }: Props) {
+export default function SectionForm({ onSubmit, editingSection, onCancelEdit, usedColors, allowedStartTimes, allowedEndTimes, instructors, courses, tags, defaultSectionColor, existingSections, sectionAttributes }: Props) {
   const [form, setForm] = useState(emptyForm);
 
   useEffect(() => {
@@ -48,6 +55,12 @@ export default function SectionForm({ onSubmit, editingSection, onCancelEdit, us
         location: editingSection.location,
         color: editingSection.color,
         tagIds: editingSection.tagIds ?? [],
+        sectionType: editingSection.sectionType ?? '',
+        meetingType: editingSection.meetingType ?? '',
+        campus: editingSection.campus ?? '',
+        resource: editingSection.resource ?? '',
+        level: editingSection.level ?? '',
+        workload: editingSection.workload != null ? String(editingSection.workload) : '',
       });
     }
   }, [editingSection]);
@@ -102,6 +115,12 @@ export default function SectionForm({ onSubmit, editingSection, onCancelEdit, us
       location: form.location,
       color: form.color || defaultSectionColor || getNextColor(usedColors),
       tagIds: form.tagIds.length > 0 ? form.tagIds : undefined,
+      sectionType: form.sectionType || undefined,
+      meetingType: form.meetingType || undefined,
+      campus: form.campus || undefined,
+      resource: form.resource || undefined,
+      level: form.level || undefined,
+      workload: form.workload !== '' ? Math.floor(parseFloat(form.workload) * 100) / 100 : undefined,
     };
     onSubmit(section);
     setForm(emptyForm);
@@ -140,7 +159,7 @@ export default function SectionForm({ onSubmit, editingSection, onCancelEdit, us
       </label>
 
       <label>
-        Section Number *
+        Section Code (e.g. AB1) *
         <input
           type="text"
           value={form.sectionNumber}
@@ -232,6 +251,94 @@ export default function SectionForm({ onSubmit, editingSection, onCancelEdit, us
           placeholder="Room 204"
         />
       </label>
+
+      {sectionAttributes.sectionTypes.length > 0 && (
+        <label>
+          Section Type
+          <select value={form.sectionType} onChange={e => setForm(f => ({ ...f, sectionType: e.target.value }))}>
+            <option value="">— None —</option>
+            {sectionAttributes.sectionTypes.map(o => <option key={o.id} value={o.name}>{o.name}</option>)}
+          </select>
+        </label>
+      )}
+
+      {sectionAttributes.meetingTypes.length > 0 && (
+        <label>
+          Meeting Type
+          <select value={form.meetingType} onChange={e => setForm(f => ({ ...f, meetingType: e.target.value }))}>
+            <option value="">— None —</option>
+            {sectionAttributes.meetingTypes.map(o => <option key={o.id} value={o.name}>{o.name}</option>)}
+          </select>
+        </label>
+      )}
+
+      {sectionAttributes.campuses.length > 0 && (
+        <label>
+          Campus
+          <select value={form.campus} onChange={e => setForm(f => ({ ...f, campus: e.target.value }))}>
+            <option value="">— None —</option>
+            {sectionAttributes.campuses.map(o => <option key={o.id} value={o.name}>{o.name}</option>)}
+          </select>
+        </label>
+      )}
+
+      {sectionAttributes.resources.length > 0 && (
+        <label>
+          Resource
+          <select value={form.resource} onChange={e => setForm(f => ({ ...f, resource: e.target.value }))}>
+            <option value="">— None —</option>
+            {sectionAttributes.resources.map(o => <option key={o.id} value={o.name}>{o.name}</option>)}
+          </select>
+        </label>
+      )}
+
+      {sectionAttributes.levels.length > 0 && (
+        <label>
+          Level
+          <select value={form.level} onChange={e => setForm(f => ({ ...f, level: e.target.value }))}>
+            <option value="">— None —</option>
+            {sectionAttributes.levels.map(o => <option key={o.id} value={o.name}>{o.name}</option>)}
+          </select>
+        </label>
+      )}
+
+      <div className="form-field">
+        <span>Workload</span>
+        <div className="workload-row">
+          <select
+            value={['0', '1', '2', '3', '4', '5'].includes(form.workload) ? form.workload : ''}
+            onChange={e => setForm(f => ({ ...f, workload: e.target.value }))}
+          >
+            <option value="">— Select —</option>
+            {[0, 1, 2, 3, 4, 5].map(n => (
+              <option key={n} value={String(n)}>{n}</option>
+            ))}
+          </select>
+          <span>or</span>
+          <input
+            type="text"
+            inputMode="decimal"
+            value={form.workload}
+            onChange={e => {
+              const val = e.target.value;
+              if (val === '' || /^\d*\.?\d{0,2}$/.test(val)) {
+                setForm(f => ({ ...f, workload: val }));
+              }
+            }}
+            onBlur={() => {
+              if (form.workload === '') return;
+              const num = parseFloat(form.workload);
+              if (isNaN(num) || num < 0) {
+                setForm(f => ({ ...f, workload: '' }));
+              } else {
+                setForm(f => ({ ...f, workload: String(Math.floor(num * 100) / 100) }));
+              }
+            }}
+            placeholder="e.g. 1.5"
+            style={{ width: 80 }}
+          />
+        </div>
+      </div>
 
       {tags.length > 0 && (
         <div className="form-field">

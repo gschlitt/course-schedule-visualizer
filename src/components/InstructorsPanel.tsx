@@ -90,7 +90,7 @@ export default function InstructorsPanel({ instructors, onSave, onClose }: Props
               <div className="instructor-history-term-label">{key}</div>
               {entries.map((entry, i) => (
                 <div key={i} className="instructor-history-entry">
-                  {entry.courseName} &sect;{entry.sectionNumber} &mdash; {entry.location}
+                  {entry.courseName} &sect;{entry.sectionNumber} &mdash; {entry.location}{entry.workload != null ? ` (WL: ${entry.workload})` : ''}
                 </div>
               ))}
             </div>

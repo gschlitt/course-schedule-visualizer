@@ -17,12 +17,19 @@ export interface Section {
   location: string;
   color: string;
   tagIds?: string[];
+  sectionType?: string;
+  meetingType?: string;
+  campus?: string;
+  resource?: string;
+  level?: string;
+  workload?: number;
 }
 
 export interface InstructorHistoryEntry {
   courseName: string;
   sectionNumber: string;
   location: string;
+  workload?: number;
 }
 
 export interface Instructor {
@@ -42,12 +49,27 @@ export interface Course {
   id: string;
   title: string;
   abbreviation: string;
+  subject?: string;
   history?: Record<string, CourseHistoryEntry[]>; // key = "2026-Fall"
 }
 
 export interface Tag {
   id: string;
   name: string;
+}
+
+export interface OptionItem {
+  id: string;
+  name: string;
+}
+
+export interface SectionAttributes {
+  subjects: OptionItem[];
+  sectionTypes: OptionItem[];
+  meetingTypes: OptionItem[];
+  campuses: OptionItem[];
+  resources: OptionItem[];
+  levels: OptionItem[];
 }
 
 export interface Settings {

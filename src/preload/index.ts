@@ -22,6 +22,7 @@ export interface StorageApi {
   sendErrorReport(body: string): Promise<boolean>;
   selectCsvFolder(): Promise<string | null>;
   writeCsv(folderPath: string, filename: string, csvContent: string): Promise<boolean>;
+  readDefaults(): Promise<string>;
 }
 
 const storageApi: StorageApi = {
@@ -37,6 +38,7 @@ const storageApi: StorageApi = {
   sendErrorReport: (body) => ipcRenderer.invoke('error:sendReport', body),
   selectCsvFolder: () => ipcRenderer.invoke('storage:selectCsvFolder'),
   writeCsv: (folderPath, filename, csvContent) => ipcRenderer.invoke('storage:writeCsv', folderPath, filename, csvContent),
+  readDefaults: () => ipcRenderer.invoke('storage:readDefaults'),
 };
 
 contextBridge.exposeInMainWorld('storageApi', storageApi);

@@ -414,11 +414,37 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 4px;
 }
 
 .schedule-header h2 {
   font-size: 1.2rem;
+}
+
+/* Pop Out / Dock button */
+.schedule-dock-btn {
+  padding: 4px 12px;
+  background: rgba(74,144,217,0.1);
+  color: #4A90D9;
+  border: 1px solid #4A90D9;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: background 0.15s;
+}
+
+.schedule-dock-btn:hover {
+  background: rgba(74,144,217,0.2);
+}
+
+.schedule-view-detached {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 200px;
 }
 
 /* Weekly Grid */
@@ -718,7 +744,7 @@ body {
 .settings-panel {
   background: #fff;
   border-radius: 12px;
-  width: 600px;
+  width: 700px;
   max-width: 90vw;
   max-height: 80vh;
   display: flex;
@@ -1208,6 +1234,133 @@ body {
   font-size: 0.7rem;
   padding: 1px 6px;
   border-radius: 8px;
+}
+
+/* Section Attributes Panel Tabs */
+.attr-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid #eee;
+  padding: 0 20px;
+  overflow-x: auto;
+}
+
+.attr-tab {
+  padding: 8px 14px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: #888;
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.attr-tab:hover {
+  color: #333;
+}
+
+.attr-tab-active {
+  color: #4A90D9;
+  border-bottom-color: #4A90D9;
+  font-weight: 600;
+}
+
+/* Section card body — meetings alongside attributes */
+.section-card-body {
+  display: flex;
+  gap: 12px;
+  margin-top: 2px;
+  align-items: flex-start;
+}
+
+.section-meetings {
+  flex-shrink: 0;
+}
+
+.section-attr-table {
+  border-collapse: collapse;
+  flex-shrink: 0;
+}
+
+.section-attr-table td {
+  padding: 0 4px;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  vertical-align: top;
+}
+
+.section-attr-label {
+  color: #999;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.section-attr-value {
+  color: #555;
+}
+
+/* Workload row in SectionForm */
+.workload-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.workload-row select,
+.workload-row input {
+  padding: 6px 8px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  background: #fff;
+}
+
+.workload-row span {
+  font-size: 0.8rem;
+  color: #999;
+}
+
+/* Grid Context Menu */
+.grid-context-menu {
+  position: fixed;
+  z-index: 300;
+  min-width: 180px;
+  max-height: 300px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+  padding: 4px 0;
+}
+
+.grid-context-menu-header {
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.grid-context-menu-item {
+  padding: 6px 12px;
+  font-size: 0.9rem;
+  color: #333;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.grid-context-menu-item:hover {
+  background: #f0f4fa;
+}
+
+.grid-context-menu-item-active {
+  font-weight: 600;
+  color: #4A90D9;
 }
 
 /* Default color picker in Settings */

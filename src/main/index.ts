@@ -244,6 +244,18 @@ ipcMain.handle('storage:writeCsv', (_event, folderPath: string, filename: string
   }
 });
 
+ipcMain.handle('storage:readDefaults', () => {
+  // In dev: resources/ is in the project root; in prod: process.resourcesPath
+  const devPath = join(__dirname, '../../resources/defaults.csv');
+  const prodPath = join(process.resourcesPath, 'defaults.csv');
+  const csvPath = existsSync(devPath) ? devPath : prodPath;
+  try {
+    return readFileSync(csvPath, 'utf-8');
+  } catch {
+    return '';
+  }
+});
+
 ipcMain.handle('error:log', (_event, entry: { message: string; context?: string; stack?: string }) => {
   const timestamp = new Date().toISOString();
   const line = `[${timestamp}] ${entry.message}${entry.context ? ` | ctx: ${entry.context}` : ''}${entry.stack ? `\n  ${entry.stack}` : ''}`;

@@ -1,4 +1,4 @@
-import { Section, Settings, Instructor, Course, Semester, Tag } from '../types';
+import { Section, Settings, Instructor, Course, Semester, Tag, SectionAttributes, OptionItem } from '../types';
 
 function sectionsFilename(year: number, semester: Semester): string {
   return `sections-${year}-${semester}.json`;
@@ -134,6 +134,69 @@ export async function loadTags(): Promise<Tag[]> {
 
 export async function saveTags(tags: Tag[]): Promise<void> {
   await writeFile('tags.json', tags);
+}
+
+const SECTION_ATTRIBUTES_FILE = 'section-attributes.json';
+
+const EMPTY_ATTRIBUTES: SectionAttributes = {
+  subjects: [],
+  sectionTypes: [],
+  meetingTypes: [],
+  campuses: [],
+  resources: [],
+  levels: [],
+};
+
+const CSV_KEY_MAP: Record<string, keyof SectionAttributes> = {
+  Subject: 'subjects',
+  SectionType: 'sectionTypes',
+  MeetingType: 'meetingTypes',
+  Campus: 'campuses',
+  Resource: 'resources',
+  Level: 'levels',
+};
+
+function parseDefaultsCsv(csv: string): SectionAttributes {
+  const attrs: SectionAttributes = { ...EMPTY_ATTRIBUTES, subjects: [], sectionTypes: [], meetingTypes: [], campuses: [], resources: [], levels: [] };
+  for (const line of csv.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const parts = trimmed.split(',');
+    const key = parts[0].trim();
+    const field = CSV_KEY_MAP[key];
+    if (!field) continue;
+    const items: OptionItem[] = parts.slice(1)
+      .map(v => v.trim())
+      .filter(v => v.length > 0)
+      .map(v => ({ id: crypto.randomUUID(), name: v }));
+    attrs[field] = items;
+  }
+  return attrs;
+}
+
+export async function loadSectionAttributes(): Promise<SectionAttributes> {
+  const existing = await readFile<SectionAttributes | null>(SECTION_ATTRIBUTES_FILE, null);
+  if (existing) return existing;
+
+  // First load: read defaults CSV, parse, save, return
+  let csv = '';
+  try {
+    csv = await window.storageApi.readDefaults();
+  } catch {
+    // ignore — will return empty attributes
+  }
+  const attrs = csv ? parseDefaultsCsv(csv) : { ...EMPTY_ATTRIBUTES, subjects: [], sectionTypes: [], meetingTypes: [], campuses: [], resources: [], levels: [] };
+  // Save so next load finds the file
+  try {
+    await forceWriteFile(SECTION_ATTRIBUTES_FILE, attrs);
+  } catch {
+    // ignore — not critical
+  }
+  return attrs;
+}
+
+export async function saveSectionAttributes(attrs: SectionAttributes): Promise<void> {
+  await writeFile(SECTION_ATTRIBUTES_FILE, attrs);
 }
 
 export async function batchSaveSectionsAndHistory(

@@ -1,19 +1,22 @@
 import { useState } from 'react';
-import { Course } from '../types';
+import { Course, OptionItem } from '../types';
 
 interface Props {
   courses: Course[];
+  subjects: OptionItem[];
   onSave: (courses: Course[], renames: { oldAbbr: string; newAbbr: string }[]) => void;
   onClose: () => void;
 }
 
-export default function CoursesPanel({ courses, onSave, onClose }: Props) {
+export default function CoursesPanel({ courses, subjects, onSave, onClose }: Props) {
   const [list, setList] = useState<Course[]>(courses);
   const [newTitle, setNewTitle] = useState('');
   const [newAbbr, setNewAbbr] = useState('');
+  const [newSubject, setNewSubject] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editAbbr, setEditAbbr] = useState('');
+  const [editSubject, setEditSubject] = useState('');
   const [error, setError] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [renames, setRenames] = useState<{ oldAbbr: string; newAbbr: string }[]>([]);
@@ -35,9 +38,10 @@ export default function CoursesPanel({ courses, onSave, onClose }: Props) {
     if (!title || !abbreviation) return;
     const dup = isDuplicate(title, abbreviation);
     if (dup) { setError(dup); return; }
-    setList([...list, { id: crypto.randomUUID(), title, abbreviation }]);
+    setList([...list, { id: crypto.randomUUID(), title, abbreviation, subject: newSubject || undefined }]);
     setNewTitle('');
     setNewAbbr('');
+    setNewSubject('');
     setError('');
   }
 
@@ -59,6 +63,7 @@ export default function CoursesPanel({ courses, onSave, onClose }: Props) {
     setEditingId(course.id);
     setEditTitle(course.title);
     setEditAbbr(course.abbreviation);
+    setEditSubject(course.subject ?? '');
     setError('');
   }
 
@@ -72,10 +77,11 @@ export default function CoursesPanel({ courses, onSave, onClose }: Props) {
     if (old && old.abbreviation !== abbreviation) {
       setRenames(prev => [...prev, { oldAbbr: old.abbreviation, newAbbr: abbreviation }]);
     }
-    setList(list.map(c => c.id === editingId ? { ...c, title, abbreviation } : c));
+    setList(list.map(c => c.id === editingId ? { ...c, title, abbreviation, subject: editSubject || undefined } : c));
     setEditingId(null);
     setEditTitle('');
     setEditAbbr('');
+    setEditSubject('');
     setError('');
   }
 
@@ -129,6 +135,16 @@ export default function CoursesPanel({ courses, onSave, onClose }: Props) {
         <div className="settings-body">
           {error && <p style={{ color: '#e74c3c', margin: '0 0 8px' }}>{error}</p>}
           <div className="time-input-row" style={{ marginBottom: 16 }}>
+            {subjects.length > 0 && (
+              <select
+                value={newSubject}
+                onChange={e => setNewSubject(e.target.value)}
+                style={{ width: 100 }}
+              >
+                <option value="">— Subject —</option>
+                {subjects.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+              </select>
+            )}
             <input
               type="text"
               value={newTitle}
@@ -140,9 +156,9 @@ export default function CoursesPanel({ courses, onSave, onClose }: Props) {
               type="text"
               value={newAbbr}
               onChange={e => setNewAbbr(e.target.value)}
-              placeholder="Abbr"
+              placeholder="Calendar Code (e.g. HIST101)"
               maxLength={10}
-              style={{ width: 80 }}
+              style={{ width: 200 }}
               onKeyDown={e => e.key === 'Enter' && handleAdd()}
             />
             <button className="time-add-btn" onClick={handleAdd}>Add</button>
@@ -157,6 +173,17 @@ export default function CoursesPanel({ courses, onSave, onClose }: Props) {
                 >
                   {editingId === course.id ? (
                     <>
+                      {subjects.length > 0 && (
+                        <select
+                          value={editSubject}
+                          onChange={e => setEditSubject(e.target.value)}
+                          onClick={e => e.stopPropagation()}
+                          style={{ width: 100 }}
+                        >
+                          <option value="">— Subject —</option>
+                          {subjects.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                        </select>
+                      )}
                       <input
                         type="text"
                         value={editTitle}
@@ -172,8 +199,8 @@ export default function CoursesPanel({ courses, onSave, onClose }: Props) {
                         onKeyDown={e => e.key === 'Enter' && saveEdit()}
                         onClick={e => e.stopPropagation()}
                         maxLength={10}
-                        style={{ width: 80 }}
-                        placeholder="Abbr"
+                        style={{ width: 200 }}
+                        placeholder="Calendar Code (e.g. HIST101)"
                       />
                       <div className="instructor-actions">
                         <button className="btn-sm" onClick={(e) => { e.stopPropagation(); saveEdit(); }}>Save</button>
@@ -182,7 +209,7 @@ export default function CoursesPanel({ courses, onSave, onClose }: Props) {
                     </>
                   ) : (
                     <>
-                      <span className="instructor-name">{course.abbreviation} — {course.title}</span>
+                      <span className="instructor-name">{course.subject ? `[${course.subject}] ` : ''}{course.abbreviation} — {course.title}</span>
                       <div className="instructor-actions">
                         <button className="btn-sm" onClick={(e) => { e.stopPropagation(); startEdit(course); }}>Edit</button>
                         <button className="btn-sm btn-danger" onClick={(e) => { e.stopPropagation(); handleDelete(course.id); }}>Delete</button>

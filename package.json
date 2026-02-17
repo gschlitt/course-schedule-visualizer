@@ -34,6 +34,12 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
     },
+    "extraResources": [
+      {
+        "from": "resources/defaults.csv",
+        "to": "defaults.csv"
+      }
+    ],
     "directories": {
       "output": "release"
     }

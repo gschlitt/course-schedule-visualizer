@@ -20,6 +20,7 @@ interface StorageApi {
   sendErrorReport(body: string): Promise<boolean>;
   selectCsvFolder(): Promise<string | null>;
   writeCsv(folderPath: string, filename: string, csvContent: string): Promise<boolean>;
+  readDefaults(): Promise<string>;
 }
 
 interface Window {

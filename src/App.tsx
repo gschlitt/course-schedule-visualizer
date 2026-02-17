@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef, useCallback, useMemo, type MouseEvent as ReactMouseEvent } from 'react';
-import { Section, Settings, Instructor, Course, Semester, Tag } from './types';
+import { Section, Settings, Instructor, Course, Semester, Tag, SectionAttributes } from './types';
 import {
   loadSections, saveSections, forceSaveSections, batchForceSaveSections, batchSaveSectionsAndHistory,
   loadSettings, saveSettings,
   loadInstructors, saveInstructors,
   loadCourses, saveCourses,
   loadTags, saveTags,
+  loadSectionAttributes, saveSectionAttributes,
   loadYears, saveYears,
   DEFAULT_SETTINGS, ConflictError, refreshTimestamp
 } from './utils/storage';
@@ -15,7 +16,7 @@ import ScheduleView from './components/ScheduleView';
 import SettingsPanel from './components/SettingsPanel';
 import InstructorsPanel from './components/InstructorsPanel';
 import CoursesPanel from './components/CoursesPanel';
-import TagsPanel from './components/TagsPanel';
+import SectionAttributesPanel from './components/SectionAttributesPanel';
 import InstructorsSummary from './components/InstructorsSummary';
 import ConflictDialog from './components/ConflictDialog';
 import { exportCsv } from './utils/csv';
@@ -41,7 +42,8 @@ export default function App() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [showCourses, setShowCourses] = useState(false);
   const [tags, setTags] = useState<Tag[]>([]);
-  const [showTags, setShowTags] = useState(false);
+  const [sectionAttributes, setSectionAttributes] = useState<SectionAttributes>({ subjects: [], sectionTypes: [], meetingTypes: [], campuses: [], resources: [], levels: [] });
+  const [showAttributes, setShowAttributes] = useState(false);
   const [leftWidth, setLeftWidth] = useState(340);
   const [showConflict, setShowConflict] = useState(false);
   const [csvBannerDismissed, setCsvBannerDismissed] = useState(false);
@@ -91,13 +93,14 @@ export default function App() {
         setScreen('setup');
         return;
       }
-      const [yrs, sects, sett, instr, crs, tgs] = await Promise.all([
+      const [yrs, sects, sett, instr, crs, tgs, attrs] = await Promise.all([
         loadYears(),
         loadSections(2026, 'Fall'),
         loadSettings(),
         loadInstructors(),
         loadCourses(),
-        loadTags()
+        loadTags(),
+        loadSectionAttributes()
       ]);
       setYears(yrs);
       setSelectedYear(yrs[0]);
@@ -106,6 +109,7 @@ export default function App() {
       setInstructors(instr);
       setCourses(crs);
       setTags(tgs);
+      setSectionAttributes(attrs);
       initialLoadDone.current = true;
       setScreen('main');
     }
@@ -148,7 +152,7 @@ export default function App() {
         const updatedInstructors = instrSnapshot.map(inst => {
           const entries = sectionsSnapshot
             .filter(s => s.instructor === inst.name)
-            .map(s => ({ courseName: s.courseName, sectionNumber: s.sectionNumber, location: s.location }));
+            .map(s => ({ courseName: s.courseName, sectionNumber: s.sectionNumber, location: s.location, workload: s.workload }));
           const history = { ...inst.history, [termKey]: entries };
           return { ...inst, history };
         });
@@ -254,12 +258,13 @@ export default function App() {
   async function handleSelectFolder() {
     const config = await window.storageApi.selectFolder();
     if (config) {
-      const [yrs, sett, instr, crs, tgs] = await Promise.all([
+      const [yrs, sett, instr, crs, tgs, attrs] = await Promise.all([
         loadYears(),
         loadSettings(),
         loadInstructors(),
         loadCourses(),
-        loadTags()
+        loadTags(),
+        loadSectionAttributes()
       ]);
       setYears(yrs);
       setSelectedYear(yrs[0]);
@@ -267,6 +272,7 @@ export default function App() {
       setInstructors(instr);
       setCourses(crs);
       setTags(tgs);
+      setSectionAttributes(attrs);
       const sects = await loadSections(yrs[0], 'Fall');
       setSections(sects);
       initialLoadDone.current = true;
@@ -277,12 +283,13 @@ export default function App() {
   async function handleChangeFolder() {
     const config = await window.storageApi.changeFolder();
     if (config) {
-      const [yrs, sett, instr, crs, tgs] = await Promise.all([
+      const [yrs, sett, instr, crs, tgs, attrs] = await Promise.all([
         loadYears(),
         loadSettings(),
         loadInstructors(),
         loadCourses(),
-        loadTags()
+        loadTags(),
+        loadSectionAttributes()
       ]);
       setYears(yrs);
       setSelectedYear(yrs[0]);
@@ -291,6 +298,7 @@ export default function App() {
       setInstructors(instr);
       setCourses(crs);
       setTags(tgs);
+      setSectionAttributes(attrs);
       const sects = await loadSections(yrs[0], 'Fall');
       setSections(sects);
     }
@@ -537,7 +545,7 @@ export default function App() {
           )}
           <button className="settings-btn" onClick={() => setShowCourses(true)}>Courses</button>
           <button className="settings-btn" onClick={() => setShowInstructors(true)}>Instructors</button>
-          <button className="settings-btn" onClick={() => setShowTags(true)}>Tags</button>
+          <button className="settings-btn" onClick={() => setShowAttributes(true)}>Attributes</button>
           <button className="settings-btn" onClick={() => setShowSettings(true)}>Settings</button>
         </div>
       </header>
@@ -570,6 +578,7 @@ export default function App() {
               tags={tags}
               defaultSectionColor={settings.defaultSectionColor}
               existingSections={sections}
+              sectionAttributes={sectionAttributes}
             />
           ) : (
             <button className="add-section-btn" onClick={() => setShowForm(true)}>
@@ -612,6 +621,9 @@ export default function App() {
             onSelectSection={id => setSelectedSectionIds(prev =>
               prev.size === 1 && prev.has(id) ? new Set() : new Set([id])
             )}
+            onChangeInstructor={(sectionId, instructorName) => {
+              setSections(prev => prev.map(s => s.id === sectionId ? { ...s, instructor: instructorName } : s));
+            }}
             filterTagNames={filterTagNames}
             onClearFilter={() => setFilterTagIds(new Set())}
           />
@@ -632,16 +644,18 @@ export default function App() {
           onClose={() => setShowInstructors(false)}
         />
       )}
-      {showTags && (
-        <TagsPanel
+      {showAttributes && (
+        <SectionAttributesPanel
+          attributes={sectionAttributes}
           tags={tags}
-          onSave={(list) => { setTags(list); saveTags(list); setShowTags(false); }}
-          onClose={() => setShowTags(false)}
+          onSave={(attrs, newTags) => { setSectionAttributes(attrs); saveSectionAttributes(attrs); setTags(newTags); saveTags(newTags); setShowAttributes(false); }}
+          onClose={() => setShowAttributes(false)}
         />
       )}
       {showCourses && (
         <CoursesPanel
           courses={courses}
+          subjects={sectionAttributes.subjects}
           onSave={handleCourseSave}
           onClose={() => setShowCourses(false)}
         />
