@@ -69,6 +69,25 @@ export async function forceSaveSections(sections: Section[], year: number, semes
   await forceWriteFile(sectionsFilename(year, semester), sections);
 }
 
+export async function batchForceSaveSections(
+  entries: { sections: Section[]; year: number; semester: Semester }[]
+): Promise<void> {
+  const batch = entries.map(e => ({
+    filename: sectionsFilename(e.year, e.semester),
+    data: e.sections,
+  }));
+  const result = await window.storageApi.batchWrite(batch);
+  if (!result.success) {
+    throw new Error(result.error || 'Batch write failed');
+  }
+  // Update local timestamp cache
+  if (result.timestamps) {
+    for (const [filename, ts] of Object.entries(result.timestamps)) {
+      lastKnownTimestamps.set(filename, ts);
+    }
+  }
+}
+
 function generateTimes(startHour: number, endHour: number, intervalMin: number): string[] {
   const times: string[] = [];
   for (let h = startHour; h <= endHour; h++) {
@@ -115,6 +134,30 @@ export async function loadTags(): Promise<Tag[]> {
 
 export async function saveTags(tags: Tag[]): Promise<void> {
   await writeFile('tags.json', tags);
+}
+
+export async function batchSaveSectionsAndHistory(
+  sections: Section[],
+  year: number,
+  semester: Semester,
+  instructors?: Instructor[],
+  courses?: Course[]
+): Promise<void> {
+  const entries: { filename: string; data: unknown }[] = [
+    { filename: sectionsFilename(year, semester), data: sections },
+  ];
+  if (instructors) entries.push({ filename: 'instructors.json', data: instructors });
+  if (courses) entries.push({ filename: 'courses.json', data: courses });
+
+  const result = await window.storageApi.batchWrite(entries);
+  if (!result.success) {
+    throw new Error(result.error || 'Batch write failed');
+  }
+  if (result.timestamps) {
+    for (const [filename, ts] of Object.entries(result.timestamps)) {
+      lastKnownTimestamps.set(filename, ts);
+    }
+  }
 }
 
 // Refresh timestamps for a file (used after conflict resolution with "Reload")

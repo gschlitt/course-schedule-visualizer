@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, type MouseEvent as ReactMouseEvent } from 'react';
 import { Section, Settings, Instructor, Course, Semester, Tag } from './types';
 import {
-  loadSections, saveSections, forceSaveSections,
+  loadSections, saveSections, forceSaveSections, batchForceSaveSections, batchSaveSectionsAndHistory,
   loadSettings, saveSettings,
   loadInstructors, saveInstructors,
   loadCourses, saveCourses,
@@ -45,8 +45,43 @@ export default function App() {
   const [leftWidth, setLeftWidth] = useState(340);
   const [showConflict, setShowConflict] = useState(false);
   const [csvBannerDismissed, setCsvBannerDismissed] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [filterTagIds, setFilterTagIds] = useState<Set<string>>(new Set());
+  const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
+  const filterDropdownRef = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
   const initialLoadDone = useRef(false);
+  const saveQueue = useRef<Promise<void>>(Promise.resolve());
+  const saveGeneration = useRef(0);
+
+  function logError(message: string, context?: string, err?: unknown) {
+    const stack = err instanceof Error ? err.stack : undefined;
+    window.storageApi.logError({ message, context, stack }).catch(() => {});
+  }
+
+  function showError(userMessage: string, context?: string, err?: unknown) {
+    logError(userMessage, context, err);
+    setSaveError(userMessage);
+  }
+
+  async function handleSendReport() {
+    const logContents = await window.storageApi.getErrorLog();
+    const logPath = await window.storageApi.getErrorLogPath();
+    const body = [
+      `Error: ${saveError}`,
+      '',
+      `App: Course Schedule Visualizer`,
+      `Time: ${new Date().toISOString()}`,
+      `Year/Semester: ${selectedYear} ${selectedSemester}`,
+      '',
+      '--- Recent log entries ---',
+      // Include last ~30 lines to stay within mailto limits
+      logContents.split('\n').slice(-30).join('\n'),
+      '',
+      `Full log file: ${logPath}`,
+    ].join('\n');
+    await window.storageApi.sendErrorReport(body);
+  }
 
   // Initial load: check config, then load all data
   useEffect(() => {
@@ -91,49 +126,76 @@ export default function App() {
   }, [selectedYear, selectedSemester]);
 
   // Save sections when they change (after initial load)
+  // Uses a serialized queue so concurrent saves never overlap or write stale data.
   useEffect(() => {
     if (!initialLoadDone.current) return;
-    saveSections(sections, selectedYear, selectedSemester)
-      .then(() => {
-        if (settings.csvExportPath) {
-          exportCsv(sections, instructors, courses, selectedYear, selectedSemester, settings.csvExportPath).catch(() => {});
-        }
-        // Update instructor history for current year/semester
-        const termKey = `${selectedYear}-${selectedSemester}`;
-        const updatedInstructors = instructors.map(inst => {
-          const entries = sections
+    const gen = ++saveGeneration.current;
+    // Capture current values for this save
+    const sectionsSnapshot = sections;
+    const yearSnapshot = selectedYear;
+    const semesterSnapshot = selectedSemester;
+    const csvPath = settings.csvExportPath;
+    const instrSnapshot = instructors;
+    const coursesSnapshot = courses;
+
+    saveQueue.current = saveQueue.current
+      .then(async () => {
+        // If a newer save was queued, skip this stale one
+        if (gen !== saveGeneration.current) return;
+
+        // Compute instructor history updates
+        const termKey = `${yearSnapshot}-${semesterSnapshot}`;
+        const updatedInstructors = instrSnapshot.map(inst => {
+          const entries = sectionsSnapshot
             .filter(s => s.instructor === inst.name)
             .map(s => ({ courseName: s.courseName, sectionNumber: s.sectionNumber, location: s.location }));
           const history = { ...inst.history, [termKey]: entries };
           return { ...inst, history };
         });
-        const changed = updatedInstructors.some((inst, i) =>
-          JSON.stringify(inst.history) !== JSON.stringify(instructors[i].history)
+        const instrChanged = updatedInstructors.some((inst, i) =>
+          JSON.stringify(inst.history) !== JSON.stringify(instrSnapshot[i].history)
         );
-        if (changed) {
-          setInstructors(updatedInstructors);
-          saveInstructors(updatedInstructors).catch(() => {});
-        }
 
-        // Update course history for current year/semester
-        const updatedCourses = courses.map(course => {
-          const entries = sections
+        // Compute course history updates
+        const updatedCourses = coursesSnapshot.map(course => {
+          const entries = sectionsSnapshot
             .filter(s => s.courseName === course.abbreviation)
             .map(s => ({ sectionNumber: s.sectionNumber, instructor: s.instructor, location: s.location }));
           const history = { ...course.history, [termKey]: entries };
           return { ...course, history };
         });
         const coursesChanged = updatedCourses.some((course, i) =>
-          JSON.stringify(course.history) !== JSON.stringify(courses[i].history)
+          JSON.stringify(course.history) !== JSON.stringify(coursesSnapshot[i].history)
         );
-        if (coursesChanged) {
-          setCourses(updatedCourses);
-          saveCourses(updatedCourses).catch(() => {});
+
+        // Re-check before writing
+        if (gen !== saveGeneration.current) return;
+
+        // Atomically save sections + any changed history in one batch
+        await batchSaveSectionsAndHistory(
+          sectionsSnapshot, yearSnapshot, semesterSnapshot,
+          instrChanged ? updatedInstructors : undefined,
+          coursesChanged ? updatedCourses : undefined
+        );
+
+        // Update React state for history changes
+        if (instrChanged) setInstructors(updatedInstructors);
+        if (coursesChanged) setCourses(updatedCourses);
+
+        // CSV export is secondary — surface failures but don't block
+        if (csvPath) {
+          try {
+            await exportCsv(sectionsSnapshot, instrSnapshot, coursesSnapshot, yearSnapshot, semesterSnapshot, csvPath);
+          } catch (csvErr) {
+            showError('CSV export failed. Check that the export folder is accessible.', 'csv-export', csvErr);
+          }
         }
       })
       .catch(err => {
         if (err instanceof ConflictError) {
           setShowConflict(true);
+        } else {
+          showError(`Failed to save: ${err instanceof Error ? err.message : err}`, 'save-sections', err);
         }
       });
   }, [sections, selectedYear, selectedSemester, settings.csvExportPath]);
@@ -162,6 +224,31 @@ export default function App() {
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
     };
+  }, []);
+
+  // Close filter dropdown on click outside
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (filterDropdownRef.current && !filterDropdownRef.current.contains(e.target as Node)) {
+        setFilterDropdownOpen(false);
+      }
+    }
+    if (filterDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [filterDropdownOpen]);
+
+  // Test trigger: Ctrl+Shift+E simulates a save error
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.ctrlKey && e.shiftKey && e.key === 'E') {
+        e.preventDefault();
+        showError('Test error: this is a simulated save failure.', 'test-trigger', new Error('Simulated error for testing'));
+      }
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
   async function handleSelectFolder() {
@@ -213,7 +300,7 @@ export default function App() {
     const nextYear = Math.max(...years) + 1;
     const updated = [...years, nextYear];
     setYears(updated);
-    saveYears(updated).catch(() => {});
+    saveYears(updated).catch(err => showError('Failed to save year list.', 'save-years', err));
   }
 
   function handleSubmit(section: Section) {
@@ -289,19 +376,23 @@ export default function App() {
   async function renameSectionsAcrossSemesters(
     renameFn: (section: Section) => Section
   ) {
-    // Update current semester's sections in state
-    setSections(prev => prev.map(renameFn));
-    // Update all other semesters on disk
+    // Collect all changes across semesters before writing anything
+    const batch: { sections: Section[]; year: number; semester: Semester }[] = [];
     for (const year of years) {
       for (const sem of SEMESTERS) {
         if (year === selectedYear && sem === selectedSemester) continue;
         const sects = await loadSections(year, sem);
         const updated = sects.map(renameFn);
         if (JSON.stringify(sects) !== JSON.stringify(updated)) {
-          await forceSaveSections(updated, year, sem);
+          batch.push({ sections: updated, year, semester: sem });
         }
       }
     }
+    // Write all changed semesters atomically, then update current in state
+    if (batch.length > 0) {
+      await batchForceSaveSections(batch);
+    }
+    setSections(prev => prev.map(renameFn));
   }
 
   async function handleInstructorSave(list: Instructor[], instrRenames: { oldName: string; newName: string }[]) {
@@ -345,6 +436,28 @@ export default function App() {
     const sects = await loadSections(selectedYear, selectedSemester);
     setSections(sects);
   }
+
+  const filteredSections = useMemo(() => {
+    if (filterTagIds.size === 0) return sections;
+    return sections.filter(s =>
+      s.tagIds && [...filterTagIds].every(tagId => s.tagIds!.includes(tagId))
+    );
+  }, [sections, filterTagIds]);
+
+  function toggleFilterTag(tagId: string) {
+    setFilterTagIds(prev => {
+      const next = new Set(prev);
+      if (next.has(tagId)) next.delete(tagId);
+      else next.add(tagId);
+      return next;
+    });
+  }
+
+  // Filter tag names for display in banner
+  const filterTagNames = useMemo(() =>
+    [...filterTagIds].map(id => tags.find(t => t.id === id)?.name).filter(Boolean) as string[],
+    [filterTagIds, tags]
+  );
 
   if (screen === 'loading') {
     return (
@@ -395,6 +508,33 @@ export default function App() {
               <option key={s} value={s}>{s}</option>
             ))}
           </select>
+          {tags.length > 0 && (
+            <div className="filter-dropdown-wrapper" ref={filterDropdownRef}>
+              <button
+                className={`settings-btn${filterTagIds.size > 0 ? ' filter-btn-active' : ''}`}
+                onClick={() => setFilterDropdownOpen(o => !o)}
+              >
+                Filter{filterTagIds.size > 0 ? ` (${filterTagIds.size})` : ''}
+              </button>
+              {filterDropdownOpen && (
+                <div className="filter-dropdown">
+                  {tags.map(tag => (
+                    <label key={tag.id} className="filter-dropdown-item">
+                      <input
+                        type="checkbox"
+                        checked={filterTagIds.has(tag.id)}
+                        onChange={() => toggleFilterTag(tag.id)}
+                      />
+                      <span>{tag.name}</span>
+                    </label>
+                  ))}
+                  {filterTagIds.size > 0 && (
+                    <button className="filter-dropdown-clear" onClick={() => { setFilterTagIds(new Set()); setFilterDropdownOpen(false); }}>Clear all</button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
           <button className="settings-btn" onClick={() => setShowCourses(true)}>Courses</button>
           <button className="settings-btn" onClick={() => setShowInstructors(true)}>Instructors</button>
           <button className="settings-btn" onClick={() => setShowTags(true)}>Tags</button>
@@ -406,6 +546,13 @@ export default function App() {
           <span>CSV export folder not configured. Set it in Settings to auto-export readable schedule files.</span>
           <button className="csv-banner-link" onClick={() => setShowSettings(true)}>Set up</button>
           <button className="csv-banner-dismiss" onClick={() => setCsvBannerDismissed(true)}>Dismiss</button>
+        </div>
+      )}
+      {saveError && (
+        <div className="save-error-banner">
+          <span>{saveError}</span>
+          <button className="save-error-report" onClick={handleSendReport}>Send Report</button>
+          <button className="save-error-dismiss" onClick={() => setSaveError(null)}>Dismiss</button>
         </div>
       )}
       <main className="app-main">
@@ -457,7 +604,7 @@ export default function App() {
         <div className="divider" onMouseDown={onMouseDown} />
         <div className="right-panel">
           <ScheduleView
-            sections={sections}
+            sections={filteredSections}
             instructors={instructors}
             selectedSectionIds={selectedSectionIds}
             allowedStartTimes={settings.allowedStartTimes}
@@ -465,6 +612,8 @@ export default function App() {
             onSelectSection={id => setSelectedSectionIds(prev =>
               prev.size === 1 && prev.has(id) ? new Set() : new Set([id])
             )}
+            filterTagNames={filterTagNames}
+            onClearFilter={() => setFilterTagIds(new Set())}
           />
         </div>
       </main>
